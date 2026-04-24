@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+
+# Build artifacts
+contracts/artifacts/
+contracts/cache/
+contracts/typechain-types/
+contracts/dist/
+contracts/deployments/
+frontend/.next/
+frontend/out/
+backend/dist/
+backend/__pycache__/
+
+# Environment files
+.env
+*.env
+!.env.example
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Python
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+htmlcov/
