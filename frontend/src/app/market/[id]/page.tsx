@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useAccount } from "wagmi";
 import { api, Market } from "@/lib/api";
 import { MARKET_TYPES, MARKET_STATUS } from "@/lib/wagmi";
 
-const STATUS_COLORS: Record<number, string> = {
-  0: "text-green-400",
-  1: "text-yellow-400",
-  2: "text-blue-400",
-  3: "text-orange-400",
-  4: "text-red-400",
+const STATUS_EMPH: Record<number, string> = {
+  0: "text-emerald-800",
+  1: "text-amber-800",
+  2: "text-sky-800",
+  3: "text-orange-800",
+  4: "text-rose-800",
 };
 
 export default function MarketDetailPage() {
@@ -36,7 +37,7 @@ export default function MarketDetailPage() {
     setOracleMsg(null);
     try {
       const job = await api.oracle.trigger(Number(id));
-      setOracleMsg(`Oracle job #${job.id} started (${job.job_type}). Status: ${job.status}`);
+      setOracleMsg(`Job #${job.id} — ${job.job_type} — ${job.status}`);
     } catch (e: unknown) {
       setOracleMsg(`Error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -45,154 +46,184 @@ export default function MarketDetailPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-20 text-gray-500">Loading market…</div>;
+    return <p className="py-20 text-center font-bold text-neutral-500">Loading…</p>;
   }
 
   if (!market) {
-    return <div className="text-center py-20 text-red-400">Market not found.</div>;
+    return <p className="py-20 text-center font-bold text-red-800">Market not found.</p>;
   }
 
   const totalPool = market.yes_pool + market.no_pool;
   const yesPercent = totalPool > 0 ? Math.round((market.yes_pool / totalPool) * 100) : 50;
   const marketType = MARKET_TYPES.find((t) => t.value === market.market_type);
+  const isOpen = market.status === 0;
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Back */}
-      <a href="/" className="text-gray-500 hover:text-gray-300 text-sm mb-6 inline-block">
-        ← All Markets
-      </a>
+    <div className="mx-auto max-w-2xl">
+      <Link
+        href="/"
+        className="mb-6 inline-block text-sm font-bold text-neutral-700 underline decoration-2 decoration-neutral-950 underline-offset-4"
+      >
+        ← Markets
+      </Link>
 
-      {/* Header */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
-        <div className="flex items-center gap-2 mb-3">
+      <div
+        className="mb-6 border-2 border-neutral-950 bg-[#fffef8] p-5 sm:p-6"
+        style={{ boxShadow: "6px 6px 0 0 #0a0a0a" }}
+      >
+        <div className="mb-3 flex items-center gap-2">
           <span className="text-xl">{marketType?.icon}</span>
-          <span className="text-xs text-gray-500">{marketType?.label}</span>
-          <span className={`ml-auto text-xs font-medium ${STATUS_COLORS[market.status]}`}>
+          <span className="text-xs font-bold uppercase tracking-wide text-neutral-600">
+            {marketType?.label}
+          </span>
+          <span
+            className={`ml-auto text-xs font-black uppercase ${STATUS_EMPH[market.status] ?? "text-neutral-800"}`}
+          >
             {MARKET_STATUS[market.status]}
           </span>
         </div>
 
-        <h1 className="text-xl font-bold mb-4 leading-snug">{market.question}</h1>
+        <h1 className="mb-4 text-xl font-black leading-snug text-neutral-950 sm:text-2xl">
+          {market.question}
+        </h1>
 
-        {/* Pool bar */}
         <div className="mb-4">
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-green-400 font-semibold">YES — {yesPercent}%</span>
-            <span className="text-red-400 font-semibold">NO — {100 - yesPercent}%</span>
+          <div className="mb-1 flex justify-between text-sm font-black">
+            <span className="text-emerald-700">YES {yesPercent}%</span>
+            <span className="text-rose-700">NO {100 - yesPercent}%</span>
           </div>
-          <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-3 border-2 border-neutral-950 bg-white">
             <div
-              className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full transition-all"
+              className="h-full bg-emerald-500"
               style={{ width: `${yesPercent}%` }}
             />
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="bg-gray-800 rounded-xl p-3">
-            <div className="text-gray-500 text-xs mb-1">Total Pool</div>
-            <div className="font-semibold">{totalPool.toFixed(4)} ETH</div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div
+            className="border-2 border-neutral-950 bg-white p-3"
+            style={{ boxShadow: "2px 2px 0 0 #0a0a0a" }}
+          >
+            <div className="text-[10px] font-bold uppercase text-neutral-500">Pool (Ξ)</div>
+            <div className="font-mono font-bold">{totalPool.toFixed(4)}</div>
           </div>
-          <div className="bg-gray-800 rounded-xl p-3">
-            <div className="text-gray-500 text-xs mb-1">Closes</div>
-            <div className="font-semibold">
+          <div
+            className="border-2 border-neutral-950 bg-white p-3"
+            style={{ boxShadow: "2px 2px 0 0 #0a0a0a" }}
+          >
+            <div className="text-[10px] font-bold uppercase text-neutral-500">Closes</div>
+            <div className="text-xs font-bold">
               {new Date(market.resolution_time).toLocaleString()}
             </div>
           </div>
         </div>
 
-        {/* Outcome */}
         {market.status === 2 && market.outcome !== null && (
           <div
-            className={`mt-4 py-3 rounded-xl text-center text-lg font-bold ${
-              market.outcome
-                ? "bg-green-500/20 text-green-400"
-                : "bg-red-500/20 text-red-400"
+            className={`mt-4 border-2 border-neutral-950 py-3 text-center text-lg font-black ${
+              market.outcome ? "bg-emerald-300" : "bg-rose-300"
             }`}
+            style={{ boxShadow: "3px 3px 0 0 #0a0a0a" }}
           >
-            {market.outcome ? "✓ YES" : "✗ NO"}
-            {market.oracle_confidence && (
-              <span className="text-sm ml-2 opacity-70">
-                AI Confidence: {market.oracle_confidence}%
+            {market.outcome ? "YES" : "NO"}
+            {market.oracle_confidence != null && market.oracle_confidence > 0 && (
+              <span className="ml-2 text-sm font-bold opacity-80">
+                {Math.round(market.oracle_confidence)}% conf.
               </span>
             )}
           </div>
         )}
       </div>
 
-      {/* Place Bet */}
-      {market.status === 0 && (
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 mb-6">
-          <h2 className="font-semibold mb-4">Place Bet</h2>
-          <div className="flex gap-3 mb-4">
+      {isOpen && (
+        <div
+          className="mb-6 border-2 border-neutral-950 bg-white p-5"
+          style={{ boxShadow: "5px 5px 0 0 #0a0a0a" }}
+        >
+          <h2 className="mb-1 text-sm font-black uppercase">Place bet</h2>
+          <p className="mb-4 text-xs font-medium text-neutral-600">
+            Wire the contract in env, then we&apos;ll send <span className="font-mono">placeBet</span> from
+            the UI. Until then, connect shows intent only.
+          </p>
+          <div className="mb-4 flex gap-2">
             <button
+              type="button"
               onClick={() => setBetSide("yes")}
-              className={`flex-1 py-3 rounded-xl font-medium transition-all ${
-                betSide === "yes"
-                  ? "bg-green-500/20 border border-green-500 text-green-400"
-                  : "bg-gray-800 border border-gray-700 text-gray-400"
+              className={`flex-1 border-2 border-neutral-950 py-2.5 text-sm font-black ${
+                betSide === "yes" ? "bg-emerald-300" : "bg-white hover:bg-emerald-50"
               }`}
+              style={{ boxShadow: "2px 2px 0 0 #0a0a0a" }}
             >
               YES
             </button>
             <button
+              type="button"
               onClick={() => setBetSide("no")}
-              className={`flex-1 py-3 rounded-xl font-medium transition-all ${
-                betSide === "no"
-                  ? "bg-red-500/20 border border-red-500 text-red-400"
-                  : "bg-gray-800 border border-gray-700 text-gray-400"
+              className={`flex-1 border-2 border-neutral-950 py-2.5 text-sm font-black ${
+                betSide === "no" ? "bg-rose-300" : "bg-white hover:bg-rose-50"
               }`}
+              style={{ boxShadow: "2px 2px 0 0 #0a0a0a" }}
             >
               NO
             </button>
           </div>
-          <div className="mb-4">
-            <label className="text-sm text-gray-400 mb-1 block">Amount (ETH)</label>
+          <div className="mb-3">
+            <span className="nb-label">Amount (ETH)</span>
             <input
               type="number"
               step="0.001"
               min="0.001"
               value={betAmount}
               onChange={(e) => setBetAmount(e.target.value)}
-              className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-purple-500"
+              className="nb-input font-mono"
             />
           </div>
-          <p className="text-xs text-gray-500 mb-4">
-            On-chain betting requires MetaMask. Connect wallet and call{" "}
-            <code className="bg-gray-800 px-1 rounded">placeBet({market.chain_market_id ?? "?"})</code>{" "}
-            on the PredictionMarket contract.
+          <p className="mb-3 font-mono text-xs text-neutral-600">
+            placeBet( {String(market.chain_market_id ?? "—")} )
           </p>
           <button
+            type="button"
             disabled={!address}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 font-medium disabled:opacity-50 transition-all"
+            className="nb-btn w-full !py-2.5"
           >
-            {address ? `Bet ${betAmount} ETH on ${betSide.toUpperCase()}` : "Connect Wallet"}
+            {address
+              ? `Ξ ${betAmount} on ${betSide.toUpperCase()} — wire contract to enable`
+              : "Connect wallet"}
           </button>
         </div>
       )}
 
-      {/* Oracle Trigger */}
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6">
-        <h2 className="font-semibold mb-2">AI Oracle</h2>
-        <p className="text-sm text-gray-400 mb-4">
-          Manually trigger the AI oracle pipeline to resolve this market.
-          In production this runs automatically after the resolution time.
+      <div
+        className="border-2 border-neutral-950 bg-amber-100 p-5"
+        style={{ boxShadow: "5px 5px 0 0 #0a0a0a" }}
+      >
+        <h2 className="text-sm font-black uppercase">Oracle</h2>
+        <p className="mb-3 text-sm font-medium text-neutral-800">
+          Runs the AI pipeline on the evidence URL. Only while status is <strong>open</strong>.
         </p>
-        <div className="text-xs text-gray-500 font-mono bg-gray-800 rounded-lg px-3 py-2 mb-4 break-all">
-          Source: {market.data_source}
+        <div
+          className="mb-3 break-all font-mono text-xs text-neutral-800"
+          style={{ boxShadow: "inset 0 0 0 2px #0a0a0a" }}
+        >
+          <div className="bg-neutral-950 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+            source
+          </div>
+          <div className="bg-white p-2">{market.data_source}</div>
         </div>
         <button
+          type="button"
           onClick={triggerOracle}
-          disabled={triggering || market.status !== 0}
-          className="w-full py-2.5 rounded-xl bg-cyan-600/20 border border-cyan-600/40 text-cyan-400 hover:bg-cyan-600/30 text-sm font-medium disabled:opacity-40 transition-all"
+          disabled={triggering || !isOpen}
+          className="nb-btn w-full !border-neutral-950 !bg-white !py-2.5 text-sm"
         >
-          {triggering ? "Triggering…" : "Trigger Oracle Resolution"}
+          {triggering ? "…" : "Run resolution"}
         </button>
+        {!isOpen && (
+          <p className="mt-2 text-xs font-bold text-amber-900">Closed — not open in DB.</p>
+        )}
         {oracleMsg && (
-          <p className="text-xs mt-3 text-gray-400 bg-gray-800 rounded-lg px-3 py-2">
-            {oracleMsg}
-          </p>
+          <p className="mt-3 border-2 border-neutral-950 bg-white p-2 font-mono text-xs">{oracleMsg}</p>
         )}
       </div>
     </div>

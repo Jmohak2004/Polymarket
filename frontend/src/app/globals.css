@@ -1,26 +1,87 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --nb-ink: #0a0a0a;
+  --nb-paper: #f7f4ed;
+  --nb-card: #fffef8;
+  --nb-accent: #f5c518;
+  --nb-accent-hover: #e7b80f;
+  --nb-yes: #1d9c3b;
+  --nb-no: #c42b2b;
+  --nb-muted: #4a4a45;
+  --nb-border: 2px solid var(--nb-ink);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-background: var(--nb-paper);
+  --color-foreground: var(--nb-ink);
+  --font-sans: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--nb-paper);
+  color: var(--nb-ink);
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Neobrutalist primitives */
+@layer components {
+  .nb-card {
+    @apply border-2 border-neutral-950 bg-[var(--nb-card)] text-neutral-950;
+    box-shadow: 5px 5px 0 0 #0a0a0a;
+  }
+
+  .nb-card-hover {
+    @apply transition-transform duration-100 hover:-translate-y-0.5;
+  }
+  .nb-card-hover:hover {
+    box-shadow: 7px 7px 0 0 #0a0a0a;
+  }
+
+  .nb-btn {
+    @apply inline-flex items-center justify-center border-2 border-neutral-950 bg-amber-400 px-4 py-2.5 text-sm font-bold text-neutral-950;
+    @apply transition-[transform,box-shadow] duration-100;
+    box-shadow: 4px 4px 0 0 #0a0a0a;
+  }
+  .nb-btn:hover {
+    @apply -translate-y-0.5;
+    box-shadow: 6px 6px 0 0 #0a0a0a;
+  }
+  .nb-btn:active {
+    @apply translate-y-0 translate-x-0;
+    box-shadow: 2px 2px 0 0 #0a0a0a;
+  }
+  .nb-btn:disabled {
+    @apply cursor-not-allowed opacity-50;
+    @apply translate-y-0 translate-x-0;
+    box-shadow: 2px 2px 0 0 #0a0a0a;
+  }
+
+  .nb-btn-outline {
+    @apply inline-flex items-center justify-center border-2 border-neutral-950 bg-white px-3 py-2 text-sm font-bold text-neutral-950;
+    @apply transition-[transform,box-shadow] duration-100;
+    box-shadow: 3px 3px 0 0 #0a0a0a;
+  }
+  .nb-btn-outline:hover {
+    @apply -translate-y-0.5 bg-neutral-50;
+    box-shadow: 5px 5px 0 0 #0a0a0a;
+  }
+
+  .nb-input {
+    @apply w-full border-2 border-neutral-950 bg-white px-3 py-2.5 text-sm text-neutral-950 placeholder:text-neutral-400;
+    @apply focus:outline-none focus:ring-2 focus:ring-neutral-950 focus:ring-offset-2 focus:ring-offset-[var(--nb-paper)];
+  }
+
+  .nb-label {
+    @apply mb-1.5 block text-xs font-bold uppercase tracking-wide text-neutral-800;
+  }
+
+  .nb-pill {
+    @apply border-2 border-neutral-950 bg-white px-2 py-0.5 text-xs font-bold;
+    box-shadow: 2px 2px 0 0 #0a0a0a;
+  }
+
+  .nb-pill-warn {
+    @apply border-2 border-neutral-950 bg-amber-200 px-2 py-0.5 text-xs font-bold text-neutral-950;
+  }
 }

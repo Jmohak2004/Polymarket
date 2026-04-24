@@ -5,6 +5,9 @@ import { useState } from "react";
 import { useAccount, useConnect, useDisconnect } from "wagmi";
 import { pickWalletConnector } from "@/lib/walletConnect";
 
+const navLink =
+  "text-sm font-bold text-neutral-800 underline decoration-2 decoration-transparent underline-offset-4 transition hover:decoration-neutral-950";
+
 export function Navbar() {
   const { address, isConnected } = useAccount();
   const { connectAsync, connectors, isPending } = useConnect();
@@ -26,45 +29,48 @@ export function Navbar() {
   };
 
   return (
-    <nav className="border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between h-16">
+    <header className="sticky top-0 z-50 border-b-2 border-neutral-950 bg-[#fffef8]">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-8">
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl">
-            <span className="text-2xl">⚡</span>
-            <span className="bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-              PolyOracle
+          <Link
+            href="/"
+            className="flex items-baseline gap-2 font-black tracking-tight text-neutral-950"
+          >
+            <span className="text-xl leading-none" aria-hidden>
+              ◆
             </span>
+            <span className="text-lg uppercase sm:text-xl">PolyOracle</span>
           </Link>
-          <div className="hidden md:flex items-center gap-6 text-sm text-gray-400">
-            <Link href="/" className="hover:text-white transition-colors">
+          <nav className="hidden items-center gap-6 md:flex" aria-label="Main">
+            <Link href="/" className={navLink}>
               Markets
             </Link>
-            <Link href="/create" className="hover:text-white transition-colors">
-              Create Market
+            <Link href="/create" className={navLink}>
+              Create
             </Link>
-            <Link href="/oracle" className="hover:text-white transition-colors">
-              Oracle Jobs
+            <Link href="/oracle" className={navLink}>
+              Oracle
             </Link>
-          </div>
+          </nav>
         </div>
 
         <div className="flex flex-col items-end gap-1">
           {connectErr && (
-            <span className="text-[10px] text-red-400 max-w-[220px] text-right leading-tight">
+            <span className="max-w-[220px] text-right text-[10px] font-medium leading-tight text-red-700">
               {connectErr}
             </span>
           )}
           {isConnected ? (
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-gray-400 font-mono hidden sm:block">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="hidden font-mono text-xs font-medium text-neutral-600 sm:block">
                 {address?.slice(0, 6)}…{address?.slice(-4)}
               </span>
               <button
                 type="button"
                 onClick={() => disconnect()}
-                className="px-3 py-1.5 text-sm rounded-lg border border-gray-700 hover:border-gray-500 transition-colors"
+                className="nb-btn-outline px-3 py-1.5 text-xs"
               >
-                Disconnect
+                Log out
               </button>
             </div>
           ) : (
@@ -72,13 +78,13 @@ export function Navbar() {
               type="button"
               onClick={handleConnect}
               disabled={isPending}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 transition-all disabled:opacity-60"
+              className="nb-btn px-4 py-2 text-sm disabled:opacity-60"
             >
-              {isPending ? "Connecting…" : "Connect Wallet"}
+              {isPending ? "…" : "Connect wallet"}
             </button>
           )}
         </div>
       </div>
-    </nav>
+    </header>
   );
 }
