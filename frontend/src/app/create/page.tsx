@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAccount } from "wagmi";
-import { injected } from "wagmi/connectors";
-import { useConnect } from "wagmi";
+import { useAccount, useConnect } from "wagmi";
 import { api, SourceCandidate, DiscoverResponse } from "@/lib/api";
 import { MARKET_TYPES } from "@/lib/wagmi";
+import { pickWalletConnector } from "@/lib/walletConnect";
 
 const EXAMPLE_QUESTIONS: Record<number, string> = {
   0: "Will PM use the word 'AI' in their speech on April 25?",
@@ -19,7 +18,7 @@ const EXAMPLE_QUESTIONS: Record<number, string> = {
 export default function CreateMarketPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
-  const { connect } = useConnect();
+  const { connectAsync, connectors, isPending: isConnecting } = useConnect();
 
   const [form, setForm] = useState({
     question: "",
@@ -68,7 +67,16 @@ export default function CreateMarketPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isConnected || !address) {
-      connect({ connector: injected() });
+      const connector = pickWalletConnector(connectors);
+      if (!connector) {
+        setError("No wallet found. Install MetaMask or another Web3 wallet.");
+        return;
+      }
+      try {
+        await connectAsync({ connector });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
       return;
     }
 
@@ -282,10 +290,12 @@ export default function CreateMarketPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || isConnecting}
           className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading
+          {isConnecting
+            ? "Connecting wallet…"
+            : loading
             ? "Creating…"
             : isConnected
             ? "Create market"

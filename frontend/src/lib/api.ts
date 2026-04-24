@@ -47,8 +47,21 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
     ...init,
   });
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(err);
+    const raw = await res.text();
+    let message = raw;
+    try {
+      const j = JSON.parse(raw) as {
+        detail?: string | Array<{ msg?: string }>;
+      };
+      if (typeof j.detail === "string") {
+        message = j.detail;
+      } else if (Array.isArray(j.detail)) {
+        message = j.detail.map((d) => d.msg).filter(Boolean).join("; ") || message;
+      }
+    } catch {
+      /* use raw text */
+    }
+    throw new Error((message || `${res.status} ${res.statusText}`).slice(0, 800));
   }
   return res.json() as Promise<T>;
 }
