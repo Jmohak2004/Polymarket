@@ -7,6 +7,7 @@ from typing import List
 from ..database import get_db
 from ..models import MarketDB, MarketStatus
 from ..schemas import MarketCreateRequest, MarketResponse
+from ..sources.discovery import discover_sources
 
 router = APIRouter(prefix="/markets", tags=["markets"])
 
@@ -21,10 +22,28 @@ async def create_market(
             status_code=400, detail="resolution_time must be in the future"
         )
 
+    data_source = (payload.data_source or "").strip()
+    if payload.auto_discover:
+        _, candidates = await discover_sources(
+            question=payload.question,
+            market_type=payload.market_type.value,
+            search_hints=payload.search_hints,
+            max_results=5,
+        )
+        if not candidates:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "auto_discover found no web sources. Add TAVILY_API_KEY or another "
+                    "search API in .env, refine search_hints, or paste a data_source URL."
+                ),
+            )
+        data_source = candidates[0].url
+
     market = MarketDB(
         question=payload.question,
         market_type=payload.market_type.value,
-        data_source=payload.data_source,
+        data_source=data_source,
         resolution_time=payload.resolution_time,
         creator_address=payload.creator_address,
     )

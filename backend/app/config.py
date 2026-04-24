@@ -21,6 +21,18 @@ class Settings(BaseSettings):
     openweather_api_key: str = ""
     tomorrow_io_api_key: str = ""
 
+    # Web source discovery (search + scrape). Configure at least one for best results;
+    # without keys, falls back to DuckDuckGo HTML search (rate-limited, dev use).
+    tavily_api_key: str = ""
+    serpapi_key: str = ""
+    google_cse_id: str = ""
+    google_cse_api_key: str = ""
+    brave_search_api_key: str = ""
+
+    # Scrape: max bytes per page, user-agent
+    max_fetch_bytes: int = 2_000_000
+    http_user_agent: str = "PolyOracleSourceBot/1.0 (+https://github.com) research"
+
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 

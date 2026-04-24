@@ -12,7 +12,8 @@ A prediction market platform where markets are resolved automatically by a **mul
                          │ REST API
 ┌────────────────────────▼────────────────────────────────────┐
 │                     Backend (FastAPI)                        │
-│  /markets  /oracle/trigger  /oracle/jobs                     │
+│  /markets  /sources/discover  /sources/preview               │
+│  /oracle/trigger  /oracle/jobs                                │
 │                                                              │
 │  Oracle Pipelines:                                           │
 │    SpeechOracle  → Whisper / AssemblyAI → keyword detect     │
@@ -52,7 +53,8 @@ Polymarket/
 ├── backend/            # FastAPI (Python)
 │   ├── app/
 │   │   ├── main.py
-│   │   ├── routers/    markets.py · oracle.py
+│   │   ├── routers/    markets.py · oracle.py · sources.py
+│   │   ├── sources/    web search + page text extraction
 │   │   ├── oracle/     speech · image · weather · social
 │   │   ├── blockchain.py
 │   │   ├── models.py
@@ -65,6 +67,19 @@ Polymarket/
         ├── components/ Navbar · MarketCard
         └── lib/        api.ts · wagmi.ts
 ```
+
+## Web source discovery
+
+The backend can **search the open web** for evidence URLs (news, YouTube, transcripts) and **extract main text** from pages for the oracle.
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /sources/discover` | Build a type-aware search query, return ranked `url` / `title` / `snippet` |
+| `GET /sources/preview?url=` | Download a URL and return extracted text (trafilatura) |
+
+**Search providers (configure one or more in `backend/.env`):** `TAVILY_API_KEY` (recommended for agents), `SERPAPI_KEY`, `GOOGLE_CSE_ID` + `GOOGLE_CSE_API_KEY`, `BRAVE_SEARCH_API_KEY`. If none are set, **DuckDuckGo** HTML search is used (fine for local dev, not for production load).
+
+**Market creation:** set `auto_discover: true` to let the server pick the **top search result** as `data_source` automatically. The create form also has “Find web sources” to pick a result manually.
 
 ## Quick Start
 

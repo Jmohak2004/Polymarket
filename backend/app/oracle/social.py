@@ -9,10 +9,10 @@ Pipeline:
 import json
 import re
 from typing import Tuple
-import httpx
 
 from .base import BaseOracle
 from ..config import settings
+from ..sources.discovery import extract_text_from_url
 
 
 class SocialOracle(BaseOracle):
@@ -29,20 +29,19 @@ class SocialOracle(BaseOracle):
         raise RuntimeError("No LLM API key configured")
 
     async def _fetch_content(self, source: str) -> str:
-        """Attempt to fetch text from URL; fallback to empty string."""
+        """Fetch URL and extract main article text (trafilatura + fallback)."""
         if not source.startswith("http"):
             return source  # treat as raw text/context
 
         try:
-            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-                resp = await client.get(
-                    source,
-                    headers={"User-Agent": "PolymarketOracle/1.0 (research bot)"},
-                )
-                resp.raise_for_status()
-                # Very basic HTML strip
-                text = re.sub(r'<[^>]+>', ' ', resp.text)
-                return text[:8000]
+            data = await extract_text_from_url(source, max_chars=12_000)
+            text = (data.get("text") or "").strip()
+            w = data.get("warning")
+            if w:
+                text = f"{w}\n\n{text}"
+            if text:
+                return text
+            return f"[No extractable text from source: {source}]"
         except Exception as exc:
             return f"[Could not fetch source: {exc}]"
 

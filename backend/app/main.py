@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
-from .routers import markets, oracle
+from .routers import markets, oracle, sources
 from .config import settings
 
 
@@ -33,6 +33,7 @@ app.add_middleware(
 
 app.include_router(markets.router)
 app.include_router(oracle.router)
+app.include_router(sources.router)
 
 
 @app.get("/health")

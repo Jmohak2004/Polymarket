@@ -29,6 +29,18 @@ export interface OracleJob {
   completed_at: string | null;
 }
 
+export interface SourceCandidate {
+  url: string;
+  title: string;
+  snippet: string;
+  provider: string;
+}
+
+export interface DiscoverResponse {
+  search_query: string;
+  sources: SourceCandidate[];
+}
+
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -49,10 +61,30 @@ export const api = {
     create: (body: {
       question: string;
       market_type: number;
-      data_source: string;
+      data_source?: string;
       resolution_time: string;
       creator_address: string;
+      auto_discover?: boolean;
+      search_hints?: string;
     }) => fetchJson<Market>("/markets/", { method: "POST", body: JSON.stringify(body) }),
+  },
+  sources: {
+    discover: (body: {
+      question: string;
+      market_type: number;
+      search_hints?: string;
+      max_results?: number;
+    }) =>
+      fetchJson<DiscoverResponse>("/sources/discover", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    preview: (url: string) => {
+      const q = new URLSearchParams({ url });
+      return fetchJson<{ url: string; title: string | null; text: string; warning: string | null }>(
+        `/sources/preview?${q.toString()}`
+      );
+    },
   },
   oracle: {
     trigger: (marketId: number) =>
