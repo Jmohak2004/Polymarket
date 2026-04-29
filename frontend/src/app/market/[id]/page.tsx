@@ -16,6 +16,7 @@ import {
 import { api, Market } from "@/lib/api";
 import { getExpectedChainId } from "@/lib/chainEnv";
 import { shortError } from "@/lib/errors";
+import { toastSuccess, toastError as notifyError } from "@/lib/toast";
 import { TxHashLink } from "@/components/TxHashLink";
 import {
   predictionMarketAbi,
@@ -226,6 +227,7 @@ export default function MarketDetailPage() {
   const apiPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const oracleBurstIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const oracleBurstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingResolveKind = useRef<"claim" | "dispute" | null>(null);
 
   const clearOracleBurst = useCallback(() => {
     if (oracleBurstIntervalRef.current !== null) {
@@ -300,10 +302,12 @@ export default function MarketDetailPage() {
     setBetPrepError(null);
     if (receipt.status === "reverted") {
       setBetPrepError("Bet transaction reverted on-chain.");
+      notifyError(new Error("Bet transaction reverted."));
       setBetTxHash(undefined);
       return;
     }
     refreshMarketFromApi();
+    toastSuccess("Bet confirmed on-chain.");
     setBetTxHash(undefined);
   }, [betTxHash, receipt, refreshMarketFromApi]);
 
@@ -314,10 +318,17 @@ export default function MarketDetailPage() {
     setResolvePrepError(null);
     if (resolveReceipt.status === "reverted") {
       setResolvePrepError("Settlement transaction reverted.");
+      notifyError(new Error("Settlement transaction reverted."));
       setResolveTxHash(undefined);
+      pendingResolveKind.current = null;
       return;
     }
     refreshMarketFromApi();
+    const kind = pendingResolveKind.current;
+    pendingResolveKind.current = null;
+    toastSuccess(
+      kind === "dispute" ? "Dispute submitted on-chain." : "Reward claim confirmed on-chain.",
+    );
     setResolveTxHash(undefined);
   }, [resolveTxHash, resolveReceipt, refreshMarketFromApi]);
 
@@ -335,10 +346,13 @@ export default function MarketDetailPage() {
     try {
       const job = await api.oracle.trigger(Number(id));
       setOracleMsg(`Job #${job.id} — ${job.job_type} — ${job.status}`);
+      toastSuccess(`Oracle job #${job.id} queued (${job.job_type}).`);
       startOracleBurstPolling();
       refreshMarketFromApi();
     } catch (e: unknown) {
-      setOracleMsg(`Error: ${e instanceof Error ? e.message : String(e)}`);
+      const msg = `Error: ${e instanceof Error ? e.message : String(e)}`;
+      setOracleMsg(msg);
+      notifyError(e);
     } finally {
       setTriggering(false);
     }
@@ -399,10 +413,12 @@ export default function MarketDetailPage() {
     resetResolveWrite();
     if (!contractAddr || !simClaimData?.request || !address) return;
     if (resolveBusy) return;
+    pendingResolveKind.current = "claim";
     try {
       const hash = await writeResolveAsync(simClaimData.request);
       setResolveTxHash(hash as `0x${string}`);
     } catch (e: unknown) {
+      pendingResolveKind.current = null;
       setResolvePrepError(shortError(e));
     }
   };
@@ -412,10 +428,12 @@ export default function MarketDetailPage() {
     resetResolveWrite();
     if (!contractAddr || !simDisputeData?.request || !address) return;
     if (resolveBusy) return;
+    pendingResolveKind.current = "dispute";
     try {
       const hash = await writeResolveAsync(simDisputeData.request);
       setResolveTxHash(hash as `0x${string}`);
     } catch (e: unknown) {
+      pendingResolveKind.current = null;
       setResolvePrepError(shortError(e));
     }
   };

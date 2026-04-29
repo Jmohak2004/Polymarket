@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { api, Market } from "@/lib/api";
+import { shortError } from "@/lib/errors";
+import { toastError } from "@/lib/toast";
 import { MarketCard } from "@/components/MarketCard";
 import Link from "next/link";
 
@@ -23,7 +25,11 @@ export default function HomePage() {
     api.markets
       .list(filter)
       .then(setMarkets)
-      .catch((e) => setError(e.message))
+      .catch((e) => {
+        const msg = shortError(e);
+        setError(msg);
+        toastError(e);
+      })
       .finally(() => setLoading(false));
   }, [filter]);
 

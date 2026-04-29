@@ -15,6 +15,7 @@ import {
 import { api, SourceCandidate, DiscoverResponse, Market } from "@/lib/api";
 import { getExpectedChainId } from "@/lib/chainEnv";
 import { shortError } from "@/lib/errors";
+import { toastSuccess } from "@/lib/toast";
 import { getPredictionMarketAddress, predictionMarketAbi } from "@/lib/predictionMarket";
 import { MARKET_TYPES } from "@/lib/wagmi";
 import { pickWalletConnector } from "@/lib/walletConnect";
@@ -175,6 +176,7 @@ export default function CreateMarketPage() {
     }
 
     setPhase("idle");
+    toastSuccess("Market registered on-chain and linked.");
     router.push(`/market/${market.id}`);
   };
 
@@ -220,6 +222,7 @@ export default function CreateMarketPage() {
       const contractAddr = getPredictionMarketAddress();
       if (!contractAddr) {
         setPhase("idle");
+        toastSuccess("Market created.");
         router.push(`/market/${created.id}`);
         return;
       }
