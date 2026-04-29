@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { formatEther, parseEther } from "viem";
@@ -28,6 +28,12 @@ const MIN_BET_WEI = parseEther("0.001");
 
 /** Solidity `MarketStatus` on-chain — match `PredictionMarket.Market.status` uint8 decode */
 const ONCHAIN_RESOLVED = 2;
+
+/** Background refresh of market from API (aligned with typical block time) */
+const API_POLL_MS = 12_000;
+/** After oracle trigger — faster bursts until outcomes land or timeout */
+const ORACLE_BURST_MS = 4_000;
+const ORACLE_BURST_MAX_MS = 120_000;
 
 const STATUS_EMPH: Record<number, string> = {
   0: "text-emerald-800",
@@ -217,6 +223,31 @@ export default function MarketDetailPage() {
     api.markets.get(Number(id)).then(setMarket).catch(() => setMarket(null));
   }, [id]);
 
+  const apiPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const oracleBurstIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const oracleBurstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearOracleBurst = useCallback(() => {
+    if (oracleBurstIntervalRef.current !== null) {
+      clearInterval(oracleBurstIntervalRef.current);
+      oracleBurstIntervalRef.current = null;
+    }
+    if (oracleBurstTimeoutRef.current !== null) {
+      clearTimeout(oracleBurstTimeoutRef.current);
+      oracleBurstTimeoutRef.current = null;
+    }
+  }, []);
+
+  const startOracleBurstPolling = useCallback(() => {
+    clearOracleBurst();
+    oracleBurstIntervalRef.current = setInterval(() => {
+      refreshMarketFromApi();
+    }, ORACLE_BURST_MS);
+    oracleBurstTimeoutRef.current = setTimeout(() => {
+      clearOracleBurst();
+    }, ORACLE_BURST_MAX_MS);
+  }, [clearOracleBurst, refreshMarketFromApi]);
+
   useEffect(() => {
     setBetPrepError(null);
     setResolvePrepError(null);
@@ -227,6 +258,41 @@ export default function MarketDetailPage() {
       .catch(() => setMarket(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (apiPollRef.current !== null) {
+      clearInterval(apiPollRef.current);
+      apiPollRef.current = null;
+    }
+    if (loading) return;
+
+    apiPollRef.current = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return;
+      }
+      refreshMarketFromApi();
+    }, API_POLL_MS);
+
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        refreshMarketFromApi();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      if (apiPollRef.current !== null) {
+        clearInterval(apiPollRef.current);
+        apiPollRef.current = null;
+      }
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [loading, id, refreshMarketFromApi]);
+
+  useEffect(() => {
+    clearOracleBurst();
+    return clearOracleBurst;
+  }, [id, clearOracleBurst]);
 
   useEffect(() => {
     if (!betTxHash || !receipt) return;
@@ -269,6 +335,8 @@ export default function MarketDetailPage() {
     try {
       const job = await api.oracle.trigger(Number(id));
       setOracleMsg(`Job #${job.id} — ${job.job_type} — ${job.status}`);
+      startOracleBurstPolling();
+      refreshMarketFromApi();
     } catch (e: unknown) {
       setOracleMsg(`Error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
