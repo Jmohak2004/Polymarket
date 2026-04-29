@@ -42,6 +42,7 @@ A prediction market platform where markets are resolved automatically by a **mul
 
 ```
 Polymarket/
+├── docker-compose.yml  # optional local PostgreSQL
 ├── contracts/          # Hardhat + Solidity (TypeScript)
 │   ├── contracts/
 │   │   ├── PredictionMarket.sol
@@ -106,6 +107,26 @@ uvicorn app.main:app --reload
 # → http://localhost:8000/docs
 ```
 
+**Health checks**
+
+- `GET /health` — process liveness (always 200 if the server is up; does not ping the database).
+- `GET /health/ready` — readiness for load balancers; returns **503** if the database cannot be reached.
+
+**Postgres (optional, for production-like local dev)**
+
+```bash
+# From repo root — starts PostgreSQL 16 on port 5432
+docker compose up -d db
+```
+
+Set in `backend/.env`:
+
+```env
+DATABASE_URL=postgresql+asyncpg://polymarket:polymarket@localhost:5432/polymarket
+```
+
+Then start the API as above (tables are created on startup via `init_db`).
+
 ### 3. Frontend
 
 ```bash
@@ -115,6 +136,13 @@ npm install
 npm run dev
 # → http://localhost:3000
 ```
+
+**Markets listing**
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /markets/summary` | Total markets + counts per `status` (for dashboard stats) |
+| `GET /markets/?limit=40&offset=0&status_filter=` | Paginated listing (`limit` max 100) |
 
 ## Smart Contract Design
 

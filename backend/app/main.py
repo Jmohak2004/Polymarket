@@ -1,8 +1,8 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from .database import init_db
+from .database import check_db_alive, init_db
 from .routers import markets, oracle, sources
 from .config import settings
 
@@ -47,9 +47,23 @@ app.include_router(sources.router)
 
 @app.get("/health")
 async def health():
+    """Lightweight liveness probe — does not validate the database."""
     return {
         "status": "ok",
         "version": "0.1.0",
+        "chain_id": settings.chain_id,
+        "env": settings.app_env,
+    }
+
+
+@app.get("/health/ready")
+async def health_ready():
+    """Readiness: returns 503 if the primary database cannot be reached."""
+    if not await check_db_alive():
+        raise HTTPException(status_code=503, detail={"database": "unreachable"})
+    return {
+        "status": "ok",
+        "database": "connected",
         "chain_id": settings.chain_id,
         "env": settings.app_env,
     }

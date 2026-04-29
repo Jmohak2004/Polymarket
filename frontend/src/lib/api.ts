@@ -17,6 +17,18 @@ export interface Market {
   tx_hash: string | null;
 }
 
+export interface MarketSummary {
+  total: number;
+  by_status: Record<string, number>;
+}
+
+export interface PagedMarkets {
+  items: Market[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface OracleJob {
   id: number;
   market_id: number;
@@ -68,8 +80,16 @@ async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   markets: {
-    list: (status?: number) =>
-      fetchJson<Market[]>(status !== undefined ? `/markets/?status_filter=${status}` : "/markets/"),
+    summary: () => fetchJson<MarketSummary>("/markets/summary"),
+    list: (status?: number, opts?: { limit?: number; offset?: number }) => {
+      const limit = opts?.limit ?? 40;
+      const offset = opts?.offset ?? 0;
+      const q = new URLSearchParams();
+      q.set("limit", String(limit));
+      q.set("offset", String(offset));
+      if (status !== undefined) q.set("status_filter", String(status));
+      return fetchJson<PagedMarkets>(`/markets/?${q.toString()}`);
+    },
     get: (id: number) => fetchJson<Market>(`/markets/${id}`),
     create: (body: {
       question: string;

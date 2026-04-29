@@ -22,9 +22,10 @@ requests==2.32.3
 celery==5.5.2
 redis==5.2.1
 
-# DB (lightweight, swap for Postgres in prod)
+# DB (SQLite local; use asyncpg + DATABASE_URL for Postgres e.g. Docker)
 sqlalchemy==2.0.40
 aiosqlite==0.20.0
+asyncpg==0.30.0
 
 # Dev / test
 pytest==8.3.5

@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -78,6 +78,21 @@ class MarketResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+
+class MarketSummaryResponse(BaseModel):
+    """Row counts grouped by numeric `MarketDB.status`; keys are integers as strings (JSON-safe)."""
+
+    total: int
+    by_status: Dict[str, int]
+
+
+class PagedMarketsResponse(BaseModel):
+    items: List[MarketResponse]
+    total: int
+    limit: int
+    offset: int
 
 
 _HEX64 = re.compile(r"^0x[a-fA-F0-9]{64}$")

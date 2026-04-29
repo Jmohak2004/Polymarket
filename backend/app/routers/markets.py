@@ -1,12 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from datetime import datetime
-from typing import List
-
 from ..database import get_db
 from ..models import MarketDB, MarketStatus
-from ..schemas import MarketChainSyncRequest, MarketCreateRequest, MarketResponse
+from ..schemas import (
+    MarketChainSyncRequest,
+    MarketCreateRequest,
+    MarketResponse,
+    MarketSummaryResponse,
+    PagedMarketsResponse,
+)
 from ..sources.discovery import discover_sources
 
 router = APIRouter(prefix="/markets", tags=["markets"])
@@ -108,16 +112,41 @@ async def create_market(
     return market
 
 
-@router.get("/", response_model=List[MarketResponse])
+@router.get("/summary", response_model=MarketSummaryResponse)
+async def market_summary(db: AsyncSession = Depends(get_db)):
+    total_row = await db.execute(select(func.count()).select_from(MarketDB))
+    total = int(total_row.scalar_one() or 0)
+
+    grp = await db.execute(
+        select(MarketDB.status, func.count()).select_from(MarketDB).group_by(MarketDB.status)
+    )
+    by_status: dict[str, int] = {str(r[0]): int(r[1]) for r in grp.all()}
+    return MarketSummaryResponse(total=total, by_status=by_status)
+
+
+@router.get("/", response_model=PagedMarketsResponse)
 async def list_markets(
     status_filter: int | None = None,
+    offset: int = Query(0, ge=0),
+    limit: int = Query(40, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(MarketDB).order_by(MarketDB.created_at.desc())
+    count_q = select(func.count()).select_from(MarketDB)
+    query = select(MarketDB)
     if status_filter is not None:
         query = query.where(MarketDB.status == status_filter)
+        count_q = count_q.where(MarketDB.status == status_filter)
+    query = query.order_by(MarketDB.created_at.desc()).offset(offset).limit(limit)
+
+    total = int((await db.execute(count_q)).scalar_one() or 0)
     result = await db.execute(query)
-    return result.scalars().all()
+    rows = result.scalars().all()
+    return PagedMarketsResponse(
+        items=list(rows),
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{market_id}", response_model=MarketResponse)
