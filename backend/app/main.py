@@ -7,6 +7,15 @@ from .routers import markets, oracle, sources
 from .config import settings
 
 
+def cors_allow_origins() -> list[str]:
+    raw = (settings.cors_origins or "").strip()
+    if raw:
+        return [p.strip() for p in raw.split(",") if p.strip()]
+    if settings.app_env == "development":
+        return ["*"]
+    return []
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -25,7 +34,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if settings.app_env == "development" else ["https://yourdomain.com"],
+    allow_origins=cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

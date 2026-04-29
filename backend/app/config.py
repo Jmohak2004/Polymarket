@@ -5,6 +5,10 @@ class Settings(BaseSettings):
     app_env: str = "development"
     secret_key: str = "change_me"
 
+    # Comma-separated browser origins (no spaces required). Empty: dev uses "*",
+    # production uses no default — set explicitly for any browser SPA.
+    cors_origins: str = ""
+
     # Blockchain
     rpc_url: str = "http://127.0.0.1:8545"
     chain_id: int = 31337
