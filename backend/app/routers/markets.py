@@ -6,10 +6,65 @@ from typing import List
 
 from ..database import get_db
 from ..models import MarketDB, MarketStatus
-from ..schemas import MarketCreateRequest, MarketResponse
+from ..schemas import MarketChainSyncRequest, MarketCreateRequest, MarketResponse
 from ..sources.discovery import discover_sources
 
 router = APIRouter(prefix="/markets", tags=["markets"])
+
+
+def _normalize_address(addr: str | None) -> str:
+    return (addr or "").strip().lower()
+
+
+@router.patch(
+    "/{market_id}/chain-sync",
+    response_model=MarketResponse,
+)
+async def sync_market_chain(
+    market_id: int,
+    payload: MarketChainSyncRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Persist on-chain ids after deploy (creator must match the DB listing)."""
+    market = await db.get(MarketDB, market_id)
+    if not market:
+        raise HTTPException(status_code=404, detail="Market not found")
+
+    stored = _normalize_address(market.creator_address)
+    signer = _normalize_address(payload.creator_address)
+    if stored and stored != signer:
+        raise HTTPException(
+            status_code=403,
+            detail="creator_address does not match this market listing",
+        )
+
+    conflict = await db.execute(
+        select(MarketDB)
+        .where(MarketDB.chain_market_id == payload.chain_market_id)
+        .where(MarketDB.id != market_id)
+        .limit(1)
+    )
+    if conflict.scalars().first() is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="chain_market_id is already linked to another market",
+        )
+
+    if market.chain_market_id is not None:
+        if market.chain_market_id != payload.chain_market_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Market already linked to a different chain_market_id",
+            )
+    else:
+        market.chain_market_id = payload.chain_market_id
+
+    if payload.tx_hash is not None:
+        market.tx_hash = payload.tx_hash
+
+    await db.commit()
+    await db.refresh(market)
+    return market
 
 
 @router.post("/", response_model=MarketResponse, status_code=status.HTTP_201_CREATED)

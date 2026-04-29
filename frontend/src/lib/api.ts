@@ -80,6 +80,18 @@ export const api = {
       auto_discover?: boolean;
       search_hints?: string;
     }) => fetchJson<Market>("/markets/", { method: "POST", body: JSON.stringify(body) }),
+    chainSync: (
+      id: number,
+      body: {
+        chain_market_id: number;
+        tx_hash?: string | null;
+        creator_address: string;
+      },
+    ) =>
+      fetchJson<Market>(`/markets/${id}/chain-sync`, {
+        method: "PATCH",
+        body: JSON.stringify(body),
+      }),
   },
   sources: {
     discover: (body: {

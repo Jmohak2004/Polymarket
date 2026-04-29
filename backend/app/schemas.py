@@ -1,7 +1,10 @@
-from pydantic import BaseModel, Field, model_validator
-from typing import Optional
+import re
 from datetime import datetime
-from .models import MarketType, MarketStatus
+from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+from .models import MarketType
 
 
 class MarketCreateRequest(BaseModel):
@@ -75,6 +78,35 @@ class MarketResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+_HEX64 = re.compile(r"^0x[a-fA-F0-9]{64}$")
+
+
+class MarketChainSyncRequest(BaseModel):
+    """Link a DB row to the on-chain market id (and optional deployment tx)."""
+
+    chain_market_id: int = Field(..., ge=0)
+    tx_hash: Optional[str] = Field(
+        default=None,
+        description="Transaction hash of createMarket (hex, 32 bytes).",
+    )
+    creator_address: str = Field(
+        ...,
+        min_length=42,
+        max_length=42,
+        description="Must match markets.creator_address when that field is set.",
+    )
+
+    @field_validator("tx_hash")
+    @classmethod
+    def validate_tx_optional(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or str(v).strip() == "":
+            return None
+        s = v.strip()
+        if not _HEX64.match(s):
+            raise ValueError("tx_hash must be 66-char 0x-prefixed hex")
+        return s
 
 
 class BetRequest(BaseModel):
