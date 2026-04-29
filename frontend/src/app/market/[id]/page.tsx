@@ -16,6 +16,7 @@ import {
 import { api, Market } from "@/lib/api";
 import { getExpectedChainId } from "@/lib/chainEnv";
 import { shortError } from "@/lib/errors";
+import { TxHashLink } from "@/components/TxHashLink";
 import {
   predictionMarketAbi,
   getPredictionMarketAddress,
@@ -450,6 +451,23 @@ export default function MarketDetailPage() {
           </div>
         </div>
 
+        {market.tx_hash && (
+          <div
+            className="mt-3 border-2 border-neutral-950 bg-neutral-50 p-2 font-mono text-neutral-800"
+            style={{ boxShadow: "2px 2px 0 0 #0a0a0a" }}
+          >
+            <div className="text-[9px] font-bold uppercase tracking-wide text-neutral-500">
+              Create / sync tx
+            </div>
+            <div className="mt-1">
+              <TxHashLink
+                hash={market.tx_hash as `0x${string}`}
+                className="break-all text-[10px] font-medium sm:text-xs"
+              />
+            </div>
+          </div>
+        )}
+
         {market.status === 2 && market.outcome !== null && (
           <div
             className={`mt-4 border-2 border-neutral-950 py-3 text-center text-lg font-black ${
@@ -580,7 +598,7 @@ export default function MarketDetailPage() {
               {betTxHash && (
                 <span className="mt-2 block opacity-95">
                   <span className="opacity-75">Tx</span>{" "}
-                  <span className="break-all font-medium">{betTxHash}</span>
+                  <TxHashLink hash={betTxHash} className="text-xs font-medium" />
                 </span>
               )}
             </p>
@@ -660,7 +678,7 @@ export default function MarketDetailPage() {
               {resolveTxHash && (
                 <span className="mt-2 block opacity-95">
                   <span className="opacity-75">Tx</span>{" "}
-                  <span className="break-all font-medium">{resolveTxHash}</span>
+                  <TxHashLink hash={resolveTxHash} className="text-xs font-medium" />
                 </span>
               )}
             </p>
