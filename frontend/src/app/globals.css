@@ -19,9 +19,50 @@
 }
 
 body {
-  background-color: var(--nb-paper);
   color: var(--nb-ink);
   font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  min-height: 100vh;
+  position: relative;
+  isolation: isolate;
+  /* Base + layered neobrutal texture (no heavy images) */
+  background-color: var(--nb-paper);
+  background-image:
+    /* 1) Halftone dots */
+    radial-gradient(
+      rgba(10, 10, 10, 0.09) 1.2px,
+      transparent 1.2px
+    ),
+    /* 2–3) Light graph grid */
+    linear-gradient(rgba(10, 10, 10, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(10, 10, 10, 0.045) 1px, transparent 1px),
+    /* 4) Diagonal hatch (very light) */
+    repeating-linear-gradient(
+      -18deg,
+      transparent,
+      transparent 28px,
+      rgba(10, 10, 10, 0.028) 28px,
+      rgba(10, 10, 10, 0.028) 29px
+    ),
+    /* 5–6) Warm + ink corner washes (depth) */
+    radial-gradient(
+      ellipse 100% 70% at 100% 0%,
+      rgba(245, 197, 24, 0.16),
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 90% 55% at 0% 100%,
+      rgba(10, 10, 10, 0.055),
+      transparent 55%
+    );
+  background-size:
+    20px 20px,
+    48px 48px,
+    48px 48px,
+    auto,
+    100% 100%,
+    100% 100%;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+  background-attachment: fixed;
 }
 
 /* Neobrutalist primitives */
@@ -83,5 +124,41 @@ body {
 
   .nb-pill-warn {
     @apply border-2 border-neutral-950 bg-amber-200 px-2 py-0.5 text-xs font-bold text-neutral-950;
+  }
+
+  /* Big decorative blocks behind content (stays under cards via z-index) */
+  .nb-bg-blobs {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+  }
+
+  .nb-bg-blobs::before,
+  .nb-bg-blobs::after {
+    content: "";
+    position: absolute;
+    border: 3px solid rgba(10, 10, 10, 0.07);
+  }
+
+  .nb-bg-blobs::before {
+    width: min(45vw, 22rem);
+    height: min(45vw, 22rem);
+    top: 8%;
+    right: -5%;
+    rotate: 8deg;
+    background: linear-gradient(145deg, rgba(255, 254, 248, 0.5), rgba(245, 197, 24, 0.08));
+    box-shadow: 6px 6px 0 0 rgba(10, 10, 10, 0.06);
+  }
+
+  .nb-bg-blobs::after {
+    width: min(38vw, 16rem);
+    height: min(38vw, 16rem);
+    bottom: 10%;
+    left: -3%;
+    rotate: -12deg;
+    background: linear-gradient(210deg, rgba(255, 255, 255, 0.4), rgba(10, 10, 10, 0.04));
+    box-shadow: 5px 5px 0 0 rgba(10, 10, 10, 0.05);
   }
 }

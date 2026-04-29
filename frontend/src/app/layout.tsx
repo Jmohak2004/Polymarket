@@ -24,11 +24,14 @@ export default function RootLayout({
   return (
     <html lang="en" className={outfit.variable}>
       <body
-        className={`${outfit.className} min-h-screen bg-[#f7f4ed] font-sans text-neutral-950 antialiased`}
+        className={`${outfit.className} min-h-screen font-sans text-neutral-950 antialiased`}
       >
+        <div className="nb-bg-blobs" aria-hidden="true" />
         <Providers>
-          <Navbar />
-          <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
+          <div className="relative z-10">
+            <Navbar />
+            <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
+          </div>
         </Providers>
       </body>
     </html>
