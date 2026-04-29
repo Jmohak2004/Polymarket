@@ -1,9 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useAccount, useConnect } from "wagmi";
-import { api, SourceCandidate, DiscoverResponse } from "@/lib/api";
+import { useState } from "react";
+import { parseEther } from "viem";
+import {
+  useAccount,
+  useChainId,
+  useConnect,
+  usePublicClient,
+  useSwitchChain,
+  useWriteContract,
+} from "wagmi";
+import { api, SourceCandidate, DiscoverResponse, Market } from "@/lib/api";
+import { getExpectedChainId } from "@/lib/chainEnv";
+import { shortError } from "@/lib/errors";
+import { getPredictionMarketAddress, predictionMarketAbi } from "@/lib/predictionMarket";
 import { MARKET_TYPES } from "@/lib/wagmi";
 import { pickWalletConnector } from "@/lib/walletConnect";
 
@@ -23,7 +35,12 @@ const typeBtn = (on: boolean) =>
 export default function CreateMarketPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const expectedChainId = getExpectedChainId();
   const { connectAsync, connectors, isPending: isConnecting } = useConnect();
+  const publicClient = usePublicClient();
+  const { writeContractAsync, reset: resetDeployWrite } = useWriteContract();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
 
   const [form, setForm] = useState({
     question: "",
@@ -34,10 +51,15 @@ export default function CreateMarketPage() {
   });
   const [autoDiscover, setAutoDiscover] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "api" | "deploy" | "link">("idle");
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedMarketFallbackId, setSavedMarketFallbackId] = useState<number | null>(null);
   const [discover, setDiscover] = useState<DiscoverResponse | null>(null);
   const [selectedUrl, setSelectedUrl] = useState<string | null>(null);
+
+  const chainMismatch =
+    address != null && expectedChainId != null && chainId !== expectedChainId;
 
   const findSources = async () => {
     if (!form.question.trim()) {
@@ -69,8 +91,96 @@ export default function CreateMarketPage() {
     setAutoDiscover(false);
   };
 
+  const deployAndLink = async (market: Market, wallet: `0x${string}`) => {
+    const contractAddr = getPredictionMarketAddress();
+    if (!contractAddr) {
+      router.push(`/market/${market.id}`);
+      return;
+    }
+    if (!publicClient) {
+      setSavedMarketFallbackId(market.id);
+      setError("No RPC client. Reconnect your wallet.");
+      return;
+    }
+    if (expectedChainId != null && chainMismatch) {
+      setSavedMarketFallbackId(market.id);
+      setError(
+        `Switch wallet to chain ID ${expectedChainId}, then reopen this page or retry from the listing.`,
+      );
+      return;
+    }
+
+    setPhase("deploy");
+    resetDeployWrite();
+
+    const resSec = BigInt(Math.floor(Date.parse(market.resolution_time) / 1000));
+
+    let hash: `0x${string}`;
+    try {
+      hash = (await writeContractAsync({
+        address: contractAddr,
+        abi: predictionMarketAbi,
+        functionName: "createMarket",
+        args: [
+          market.question,
+          market.market_type,
+          market.data_source.trim(),
+          resSec,
+        ],
+        value: parseEther("0.001"),
+      })) as `0x${string}`;
+    } catch (err: unknown) {
+      setSavedMarketFallbackId(market.id);
+      setPhase("idle");
+      setError(shortError(err));
+      return;
+    }
+
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (receipt.status !== "success") {
+      setSavedMarketFallbackId(market.id);
+      setPhase("idle");
+      setError("createMarket mined with reverted status.");
+      return;
+    }
+
+    const nextRaw = await publicClient.readContract({
+      address: contractAddr,
+      abi: predictionMarketAbi,
+      functionName: "totalMarkets",
+    });
+    const next = Number(nextRaw as bigint);
+    const chainMarketId = next > 0 ? next - 1 : -1;
+    if (chainMarketId < 0) {
+      setSavedMarketFallbackId(market.id);
+      setPhase("idle");
+      setError("Could not read new market ID from chain.");
+      return;
+    }
+
+    setPhase("link");
+    try {
+      await api.markets.chainSync(market.id, {
+        chain_market_id: chainMarketId,
+        tx_hash: hash,
+        creator_address: wallet,
+      });
+    } catch (err: unknown) {
+      setSavedMarketFallbackId(market.id);
+      setPhase("idle");
+      setError(
+        `Deployed on-chain (id ${chainMarketId}) but failed to sync the app DB: ${shortError(err)}`,
+      );
+      return;
+    }
+
+    setPhase("idle");
+    router.push(`/market/${market.id}`);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSavedMarketFallbackId(null);
     if (!isConnected || !address) {
       const connector = pickWalletConnector(connectors);
       if (!connector) {
@@ -92,9 +202,12 @@ export default function CreateMarketPage() {
 
     setLoading(true);
     setError(null);
+    setPhase("idle");
 
+    let created: Market | null = null;
     try {
-      const market = await api.markets.create({
+      setPhase("api");
+      created = await api.markets.create({
         question: form.question,
         market_type: form.market_type,
         data_source: form.data_source.trim() || undefined,
@@ -103,12 +216,36 @@ export default function CreateMarketPage() {
         auto_discover: autoDiscover,
         search_hints: form.search_hints.trim() || undefined,
       });
-      router.push(`/market/${market.id}`);
+
+      const contractAddr = getPredictionMarketAddress();
+      if (!contractAddr) {
+        setPhase("idle");
+        router.push(`/market/${created.id}`);
+        return;
+      }
+
+      await deployAndLink(created, address);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (created) {
+        setSavedMarketFallbackId(created.id);
+        setError(`Market #${created.id} was saved, but a later step failed: ${shortError(err)}`);
+      } else {
+        setError(shortError(err));
+      }
     } finally {
       setLoading(false);
+      setPhase("idle");
     }
+  };
+
+  const submitLabel = () => {
+    if (isConnecting) return "Wallet…";
+    if (!isConnected) return "Connect wallet";
+    if (!loading) return "Create market";
+    if (phase === "api") return "Saving listing…";
+    if (phase === "deploy") return "Deploy on-chain…";
+    if (phase === "link") return "Linking…";
+    return "Creating…";
   };
 
   return (
@@ -119,9 +256,29 @@ export default function CreateMarketPage() {
       >
         <h1 className="text-2xl font-black text-neutral-950 sm:text-3xl">New market</h1>
         <p className="mt-2 text-sm font-medium text-neutral-600">
-          One clear yes/no question. Add evidence with a link or run a web search.
+          One clear yes/no question. Add evidence with a link or run a web search. With a deployed
+          contract in env you also register the market on-chain (0.001 Ξ creation fee).
         </p>
       </div>
+
+      {expectedChainId != null && isConnected && address && chainMismatch && (
+        <div
+          className="mb-6 border-2 border-red-950 bg-rose-100 p-4"
+          style={{ boxShadow: "3px 3px 0 0 #0a0a0a" }}
+        >
+          <p className="mb-2 text-sm font-bold text-red-950">
+            Wallet is on chain {chainId}; this app expects {expectedChainId}.
+          </p>
+          <button
+            type="button"
+            disabled={isSwitchingChain}
+            className="nb-btn w-full !py-2.5 text-sm"
+            onClick={() => switchChain?.({ chainId: expectedChainId })}
+          >
+            {isSwitchingChain ? "Switching…" : "Switch network"}
+          </button>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
@@ -187,7 +344,7 @@ export default function CreateMarketPage() {
             <button
               type="button"
               onClick={findSources}
-              disabled={searching}
+              disabled={searching || loading}
               className="nb-btn shrink-0 !py-2 text-sm disabled:opacity-50"
             >
               {searching ? "…" : "Find web sources"}
@@ -281,10 +438,18 @@ export default function CreateMarketPage() {
 
         {error && (
           <div
-            className="border-2 border-neutral-950 bg-rose-100 p-3 text-sm font-medium text-red-900"
+            className="space-y-2 border-2 border-neutral-950 bg-rose-100 p-3 text-sm font-medium text-red-900"
             style={{ boxShadow: "3px 3px 0 0 #0a0a0a" }}
           >
-            {error}
+            <p>{error}</p>
+            {savedMarketFallbackId != null && (
+              <Link
+                href={`/market/${savedMarketFallbackId}`}
+                className="inline-block font-black underline decoration-2 underline-offset-4"
+              >
+                Open saved listing →
+              </Link>
+            )}
           </div>
         )}
 
@@ -293,13 +458,7 @@ export default function CreateMarketPage() {
           disabled={loading || isConnecting}
           className="nb-btn w-full !py-3 text-base disabled:opacity-50"
         >
-          {isConnecting
-            ? "Wallet…"
-            : loading
-            ? "Creating…"
-            : isConnected
-            ? "Create market"
-            : "Connect wallet"}
+          {submitLabel()}
         </button>
       </form>
     </div>

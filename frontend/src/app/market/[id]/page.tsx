@@ -12,11 +12,12 @@ import {
   useWriteContract,
 } from "wagmi";
 import { api, Market } from "@/lib/api";
+import { shortError } from "@/lib/errors";
+import { getExpectedChainId } from "@/lib/chainEnv";
 import {
   predictionMarketAbi,
   getPredictionMarketAddress,
 } from "@/lib/predictionMarket";
-import { MARKET_TYPES, MARKET_STATUS } from "@/lib/wagmi";
 
 /** Contract `MIN_BET` is 0.001 ether */
 const MIN_BET_WEI = parseEther("0.001");
@@ -29,37 +30,13 @@ const STATUS_EMPH: Record<number, string> = {
   4: "text-rose-800",
 };
 
-function shortError(err: unknown): string {
-  if (err === null || err === undefined) return "Unknown error";
-  if (typeof err === "string") return err.slice(0, 480);
-  if (err instanceof Error) {
-    const any = err as Error & {
-      shortMessage?: string;
-      details?: string;
-      cause?: unknown;
-    };
-    const line =
-      typeof any.shortMessage === "string" && any.shortMessage.trim()
-        ? any.shortMessage
-        : any.message || String(any.cause ?? "");
-    return line.slice(0, 480);
-  }
-  return String(err).slice(0, 480);
-}
-
-function parseEnvChainId(): number | undefined {
-  const raw =
-    typeof process !== "undefined" ? process.env.NEXT_PUBLIC_CHAIN_ID : undefined;
-  if (!raw || !raw.trim()) return undefined;
-  const n = Number(raw.trim());
-  return Number.isFinite(n) && n > 0 ? n : undefined;
-}
+import { MARKET_TYPES, MARKET_STATUS } from "@/lib/wagmi";
 
 export default function MarketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { address } = useAccount();
   const chainId = useChainId();
-  const expectedChainId = parseEnvChainId();
+  const expectedChainId = getExpectedChainId();
 
   const [market, setMarket] = useState<Market | null>(null);
   const [loading, setLoading] = useState(true);
