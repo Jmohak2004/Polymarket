@@ -1,11 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useAccount } from "wagmi";
+import { parseEther } from "viem";
+import {
+  useAccount,
+  useChainId,
+  useSwitchChain,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 import { api, Market } from "@/lib/api";
+import {
+  predictionMarketAbi,
+  getPredictionMarketAddress,
+} from "@/lib/predictionMarket";
 import { MARKET_TYPES, MARKET_STATUS } from "@/lib/wagmi";
+
+/** Contract `MIN_BET` is 0.001 ether */
+const MIN_BET_WEI = parseEther("0.001");
 
 const STATUS_EMPH: Record<number, string> = {
   0: "text-emerald-800",
@@ -15,9 +29,38 @@ const STATUS_EMPH: Record<number, string> = {
   4: "text-rose-800",
 };
 
+function shortError(err: unknown): string {
+  if (err === null || err === undefined) return "Unknown error";
+  if (typeof err === "string") return err.slice(0, 480);
+  if (err instanceof Error) {
+    const any = err as Error & {
+      shortMessage?: string;
+      details?: string;
+      cause?: unknown;
+    };
+    const line =
+      typeof any.shortMessage === "string" && any.shortMessage.trim()
+        ? any.shortMessage
+        : any.message || String(any.cause ?? "");
+    return line.slice(0, 480);
+  }
+  return String(err).slice(0, 480);
+}
+
+function parseEnvChainId(): number | undefined {
+  const raw =
+    typeof process !== "undefined" ? process.env.NEXT_PUBLIC_CHAIN_ID : undefined;
+  if (!raw || !raw.trim()) return undefined;
+  const n = Number(raw.trim());
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 export default function MarketDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { address } = useAccount();
+  const chainId = useChainId();
+  const expectedChainId = parseEnvChainId();
+
   const [market, setMarket] = useState<Market | null>(null);
   const [loading, setLoading] = useState(true);
   const [betSide, setBetSide] = useState<"yes" | "no">("yes");
@@ -25,12 +68,56 @@ export default function MarketDetailPage() {
   const [triggering, setTriggering] = useState(false);
   const [oracleMsg, setOracleMsg] = useState<string | null>(null);
 
+  const [betTxHash, setBetTxHash] = useState<`0x${string}` | undefined>();
+  const [betPrepError, setBetPrepError] = useState<string | null>(null);
+
+  const {
+    writeContractAsync,
+    reset: resetBetWrite,
+    error: wagmiWriteErr,
+    isPending: isSigningBet,
+  } = useWriteContract();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
+
+  const { data: receipt, error: receiptErr, isFetching: isFetchingReceipt } =
+    useWaitForTransactionReceipt({ hash: betTxHash ?? undefined });
+
+  const contractAddr = useMemo(() => getPredictionMarketAddress(), []);
+  const chainMismatch =
+    address != null && expectedChainId != null && chainId !== expectedChainId;
+
+  const refreshMarketFromApi = useCallback(() => {
+    api.markets.get(Number(id)).then(setMarket).catch(() => setMarket(null));
+  }, [id]);
+
   useEffect(() => {
+    setBetPrepError(null);
+    setLoading(true);
     api.markets
       .get(Number(id))
       .then(setMarket)
+      .catch(() => setMarket(null))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    if (!betTxHash || !receipt) return;
+    if (receipt.status !== "success" && receipt.status !== "reverted") return;
+    setBetPrepError(null);
+    if (receipt.status === "reverted") {
+      setBetPrepError("Bet transaction reverted on-chain.");
+      setBetTxHash(undefined);
+      return;
+    }
+    refreshMarketFromApi();
+    setBetTxHash(undefined);
+  }, [betTxHash, receipt, refreshMarketFromApi]);
+
+  useEffect(() => {
+    if (receiptErr) {
+      setBetPrepError(shortError(receiptErr));
+    }
+  }, [receiptErr]);
 
   const triggerOracle = async () => {
     setTriggering(true);
@@ -42,6 +129,56 @@ export default function MarketDetailPage() {
       setOracleMsg(`Error: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
       setTriggering(false);
+    }
+  };
+
+  const placeBetOnChain = async () => {
+    setBetPrepError(null);
+    resetBetWrite();
+
+    if (!address) return;
+    if (!contractAddr) {
+      setBetPrepError(
+        "Set NEXT_PUBLIC_PREDICTION_MARKET_ADDRESS in .env.local to the deployed contract."
+      );
+      return;
+    }
+    if (chainMismatch && expectedChainId != null) {
+      setBetPrepError(
+        `Wrong network — switch wallet to chain ID ${expectedChainId}.`,
+      );
+      return;
+    }
+    if (market?.chain_market_id == null) {
+      setBetPrepError(
+        "This market has no chain ID yet — create it on-chain and sync DB (Tasks 5–6).",
+      );
+      return;
+    }
+
+    let value: bigint;
+    try {
+      value = parseEther(betAmount);
+    } catch {
+      setBetPrepError("Enter a valid ETH amount (e.g. 0.02).");
+      return;
+    }
+    if (value < MIN_BET_WEI) {
+      setBetPrepError(`Bet amount must be at least ${MIN_BET_WEI} wei (~0.001 ETH).`);
+      return;
+    }
+
+    try {
+      const hash = await writeContractAsync({
+        address: contractAddr,
+        abi: predictionMarketAbi,
+        functionName: "placeBet",
+        args: [BigInt(market.chain_market_id), betSide === "yes"],
+        value,
+      });
+      setBetTxHash(hash as `0x${string}`);
+    } catch (e: unknown) {
+      setBetPrepError(shortError(e));
     }
   };
 
@@ -57,6 +194,11 @@ export default function MarketDetailPage() {
   const yesPercent = totalPool > 0 ? Math.round((market.yes_pool / totalPool) * 100) : 50;
   const marketType = MARKET_TYPES.find((t) => t.value === market.market_type);
   const isOpen = market.status === 0;
+
+  const showWagmiWrite = wagmiWriteErr && shortError(wagmiWriteErr).length > 0;
+  const betBusy =
+    isSigningBet ||
+    Boolean(betTxHash && isFetchingReceipt);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -142,10 +284,50 @@ export default function MarketDetailPage() {
           style={{ boxShadow: "5px 5px 0 0 #0a0a0a" }}
         >
           <h2 className="mb-1 text-sm font-black uppercase">Place bet</h2>
-          <p className="mb-4 text-xs font-medium text-neutral-600">
-            Wire the contract in env, then we&apos;ll send <span className="font-mono">placeBet</span> from
-            the UI. Until then, connect shows intent only.
+          <p className="mb-4 text-xs font-medium leading-relaxed text-neutral-600">
+            Sends <span className="font-mono">placeBet</span> with your ETH stake. Matches the
+            on-chain pool for this chain market ID; off-chain totals update after confirmations
+            sync (see backend).
           </p>
+
+          {!contractAddr && (
+            <div
+              className="mb-4 border-2 border-amber-800 bg-amber-50 p-3 text-xs font-bold text-amber-950"
+              style={{ boxShadow: "3px 3px 0 0 #0a0a0a" }}
+            >
+              Set <span className="font-mono">NEXT_PUBLIC_PREDICTION_MARKET_ADDRESS</span>.
+            </div>
+          )}
+
+          {market.chain_market_id == null && (
+            <div
+              className="mb-4 border-2 border-amber-800 bg-amber-50 p-3 text-xs font-bold text-amber-950"
+              style={{ boxShadow: "3px 3px 0 0 #0a0a0a" }}
+            >
+              No <span className="font-mono">chain_market_id</span> on this listing — bets are
+              disabled until the DB is linked after on-chain create.
+            </div>
+          )}
+
+          {expectedChainId != null && address && chainMismatch && (
+            <div
+              className="mb-4 border-2 border-red-950 bg-rose-100 p-4"
+              style={{ boxShadow: "3px 3px 0 0 #0a0a0a" }}
+            >
+              <p className="mb-2 text-sm font-bold text-red-950">
+                Wallet chain ({chainId}) does not match <span className="font-mono">NEXT_PUBLIC_CHAIN_ID</span> ({expectedChainId}).
+              </p>
+              <button
+                type="button"
+                disabled={isSwitchingChain}
+                className="nb-btn w-full !py-2.5 text-sm"
+                onClick={() => switchChain?.({ chainId: expectedChainId })}
+              >
+                {isSwitchingChain ? "Switching…" : "Switch network"}
+              </button>
+            </div>
+          )}
+
           <div className="mb-4 flex gap-2">
             <button
               type="button"
@@ -177,19 +359,67 @@ export default function MarketDetailPage() {
               value={betAmount}
               onChange={(e) => setBetAmount(e.target.value)}
               className="nb-input font-mono"
+              disabled={
+                !!(
+                  chainMismatch ||
+                  contractAddr === undefined ||
+                  market.chain_market_id == null ||
+                  !address
+                )
+              }
             />
           </div>
-          <p className="mb-3 font-mono text-xs text-neutral-600">
-            placeBet( {String(market.chain_market_id ?? "—")} )
+          <p className="mb-3 font-mono text-[11px] text-neutral-600">
+            placeBet( marketId=<span>{String(market.chain_market_id ?? "—")}</span>,{" "}
+            {betSide.toUpperCase()} )
           </p>
+
+          {(betPrepError || showWagmiWrite) && (
+            <div
+              className="mb-4 border-2 border-red-950 bg-red-50 p-3 font-mono text-xs text-red-950"
+              style={{ boxShadow: "3px 3px 0 0 #0a0a0a" }}
+            >
+              {betPrepError ??
+                (showWagmiWrite ? shortError(wagmiWriteErr) : "")}
+            </div>
+          )}
+
+          {betBusy && (
+            <p className="mb-4 border-2 border-neutral-950 bg-neutral-100 px-3 py-2 font-mono text-xs font-bold">
+              <span className="block">{isSigningBet ? "Approve in wallet…" : "Waiting for confirmation…"}</span>
+              {betTxHash && (
+                <span className="mt-2 block opacity-95">
+                  <span className="opacity-75">Tx</span>
+                  {" "}
+                  <span className="break-all font-medium">{betTxHash}</span>
+                </span>
+              )}
+            </p>
+          )}
+
           <button
             type="button"
-            disabled={!address}
-            className="nb-btn w-full !py-2.5"
+            onClick={placeBetOnChain}
+            disabled={
+              !address ||
+              !contractAddr ||
+              market.chain_market_id == null ||
+              !!chainMismatch ||
+              betBusy
+            }
+            className="nb-btn w-full !py-2.5 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {address
-              ? `Ξ ${betAmount} on ${betSide.toUpperCase()} — wire contract to enable`
-              : "Connect wallet"}
+            {!address
+              ? "Connect wallet"
+              : !contractAddr ||
+                  market.chain_market_id == null ||
+                  !!chainMismatch
+                ? "Cannot bet yet — see notes above"
+                : isSigningBet
+                  ? "Approve in wallet…"
+                  : betTxHash && isFetchingReceipt
+                    ? "Confirming…"
+                    : `Ξ ${betAmount} on ${betSide.toUpperCase()}`}
           </button>
         </div>
       )}
