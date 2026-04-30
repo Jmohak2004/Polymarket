@@ -15,7 +15,9 @@
     "deploy:polygon": "hardhat run scripts/deploy.ts --network polygon",
     "deploy:base": "hardhat run scripts/deploy.ts --network base_sepolia",
     "node": "hardhat node",
-    "clean": "hardhat clean"
+    "clean": "hardhat clean",
+    "post-deploy:local": "bash scripts/post-deploy.sh 31337",
+    "post-deploy:amoy": "bash scripts/post-deploy.sh 80002"
   },
   "keywords": [],
   "author": "",

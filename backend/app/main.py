@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .database import check_db_alive, init_db
 from .routers import markets, oracle, sources
 from .config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def cors_allow_origins() -> list[str]:
@@ -19,7 +23,23 @@ def cors_allow_origins() -> list[str]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+
+    # Start the on-chain event indexer as a background task (no-op if contract
+    # address is not configured — safe to run in dev without a live chain).
+    indexer_task: asyncio.Task | None = None
+    if settings.prediction_market_address:
+        from .indexer import run_indexer
+        indexer_task = asyncio.create_task(run_indexer(), name="chain-indexer")
+        logger.info("Chain indexer task started.")
+
     yield
+
+    if indexer_task is not None:
+        indexer_task.cancel()
+        try:
+            await indexer_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(
