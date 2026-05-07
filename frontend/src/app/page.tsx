@@ -6,6 +6,7 @@ import { api, Market, MarketSummary } from "@/lib/api";
 import { shortError } from "@/lib/errors";
 import { toastError } from "@/lib/toast";
 import { MarketCard } from "@/components/MarketCard";
+import { MarketCardSkeleton } from "@/components/MarketCardSkeleton";
 
 const FILTERS = [
   { label: "All", value: undefined },
@@ -133,7 +134,11 @@ export default function HomePage() {
       </div>
 
       {loading && (
-        <p className="py-20 text-center font-bold text-neutral-500">Loading…</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <MarketCardSkeleton key={i} />
+          ))}
+        </div>
       )}
       {error && (
         <div
