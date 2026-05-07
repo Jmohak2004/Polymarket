@@ -23,6 +23,7 @@ import {
   getPredictionMarketAddress,
 } from "@/lib/predictionMarket";
 import { MARKET_TYPES, MARKET_STATUS } from "@/lib/wagmi";
+import { MarketDetailSkeleton } from "@/components/MarketDetailSkeleton";
 
 /** Contract `MIN_BET` is 0.001 ether */
 const MIN_BET_WEI = parseEther("0.001");
@@ -439,7 +440,7 @@ export default function MarketDetailPage() {
   };
 
   if (loading) {
-    return <p className="py-20 text-center font-bold text-neutral-500">Loading…</p>;
+    return <MarketDetailSkeleton />;
   }
 
   if (!market) {
