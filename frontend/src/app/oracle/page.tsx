@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, OracleJob } from "@/lib/api";
+import { OracleJobSkeleton } from "@/components/OracleJobSkeleton";
 
 const POLL_MS = 6000;
 
@@ -201,7 +202,13 @@ export default function OracleJobsPage() {
         </div>
       )}
 
-      {loading && <p className="py-20 text-center font-bold text-neutral-500">Loading…</p>}
+      {loading && (
+        <ul className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <OracleJobSkeleton key={i} />
+          ))}
+        </ul>
+      )}
 
       {!loading && jobs.length === 0 && !loadErr && (
         <div
