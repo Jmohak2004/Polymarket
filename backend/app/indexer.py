@@ -70,13 +70,22 @@ async def _get_last_block() -> int:
 
 async def _set_last_block(block: int) -> None:
     async with AsyncSessionLocal() as db:
-        await db.execute(
-            text(
-                "INSERT INTO indexer_state (key, value) VALUES ('last_block', :v) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
-            ),
-            {"v": str(block)},
-        )
+        if settings.database_url.startswith("sqlite"):
+            await db.execute(
+                text(
+                    "INSERT OR REPLACE INTO indexer_state (key, value) "
+                    "VALUES ('last_block', :v)"
+                ),
+                {"v": str(block)},
+            )
+        else:
+            await db.execute(
+                text(
+                    "INSERT INTO indexer_state (key, value) VALUES ('last_block', :v) "
+                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+                ),
+                {"v": str(block)},
+            )
         await db.commit()
 
 

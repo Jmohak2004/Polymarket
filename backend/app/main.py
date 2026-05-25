@@ -67,12 +67,14 @@ app.include_router(sources.router)
 
 @app.get("/health")
 async def health():
-    """Lightweight liveness probe — does not validate the database."""
+    """Liveness probe — includes optional database connectivity when reachable."""
+    db_ok = await check_db_alive()
     return {
         "status": "ok",
         "version": "0.1.0",
         "chain_id": settings.chain_id,
         "env": settings.app_env,
+        "database": "connected" if db_ok else "unreachable",
     }
 
 
