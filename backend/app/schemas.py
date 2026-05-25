@@ -139,6 +139,7 @@ class OracleJobResponse(BaseModel):
     result: Optional[bool]
     confidence: Optional[float]
     raw_output: Optional[str]
+    error: Optional[str] = None
     created_at: datetime
     completed_at: Optional[datetime]
 

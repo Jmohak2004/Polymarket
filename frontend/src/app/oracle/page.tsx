@@ -317,6 +317,11 @@ export default function OracleJobsPage() {
                         {job.raw_output}
                       </pre>
                     )}
+                    {job.error && (
+                      <p className="mt-3 border-2 border-red-950 bg-rose-50 p-3 font-mono text-[11px] text-red-950">
+                        {job.error}
+                      </p>
+                    )}
                   </div>
                 )}
               </li>

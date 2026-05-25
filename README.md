@@ -123,6 +123,8 @@ npm run post-deploy:local
 
 This writes `PREDICTION_MARKET_ADDRESS` / `ORACLE_RESOLVER_ADDRESS` into `backend/.env`
 and `NEXT_PUBLIC_PREDICTION_MARKET_ADDRESS` / `NEXT_PUBLIC_CHAIN_ID` into `frontend/.env.local`.
+For Hardhat local (`31337`) it also sets `ORACLE_PRIVATE_KEY` to the default funded account
+and saves `contracts/deployments/deployment.local.json` as a convenience alias.
 
 **`contracts/.env` checklist**
 
@@ -171,7 +173,7 @@ syncs pool totals + market status back to the database.
 
 **Health checks**
 
-- `GET /health` — liveness (always 200 if the process is up)
+- `GET /health` — liveness; includes optional `database` connectivity field
 - `GET /health/ready` — readiness; returns **503** if the database is unreachable
 
 ---

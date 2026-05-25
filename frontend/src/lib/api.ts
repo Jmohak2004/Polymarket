@@ -37,6 +37,7 @@ export interface OracleJob {
   result: boolean | null;
   confidence: number | null;
   raw_output: string | null;
+  error: string | null;
   created_at: string;
   completed_at: string | null;
 }
