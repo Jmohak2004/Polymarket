@@ -16,7 +16,7 @@ import { api, SourceCandidate, DiscoverResponse, Market } from "@/lib/api";
 import { getExpectedChainId } from "@/lib/chainEnv";
 import { shortError } from "@/lib/errors";
 import { toastSuccess } from "@/lib/toast";
-import { getPredictionMarketAddress, predictionMarketAbi } from "@/lib/predictionMarket";
+import { getPredictionMarketAddress, parseMarketCreatedFromReceipt, predictionMarketAbi } from "@/lib/predictionMarket";
 import { MARKET_TYPES } from "@/lib/wagmi";
 import { pickWalletConnector } from "@/lib/walletConnect";
 
@@ -145,17 +145,11 @@ export default function CreateMarketPage() {
       return;
     }
 
-    const nextRaw = await publicClient.readContract({
-      address: contractAddr,
-      abi: predictionMarketAbi,
-      functionName: "totalMarkets",
-    });
-    const next = Number(nextRaw as bigint);
-    const chainMarketId = next > 0 ? next - 1 : -1;
-    if (chainMarketId < 0) {
+    const chainMarketId = parseMarketCreatedFromReceipt(receipt.logs, contractAddr);
+    if (chainMarketId == null || chainMarketId < 0) {
       setSavedMarketFallbackId(market.id);
       setPhase("idle");
-      setError("Could not read new market ID from chain.");
+      setError("Could not read MarketCreated event from transaction receipt.");
       return;
     }
 

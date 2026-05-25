@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { api, OracleJob } from "@/lib/api";
 import { OracleJobSkeleton } from "@/components/OracleJobSkeleton";
 
@@ -42,10 +43,13 @@ const JOB_ICONS: Record<string, string> = {
 };
 
 export default function OracleJobsPage() {
+  const searchParams = useSearchParams();
   const [jobs, setJobs] = useState<OracleJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState<string | null>(null);
-  const [filterMarket, setFilterMarket] = useState("");
+  const [filterMarket, setFilterMarket] = useState(
+    () => searchParams.get("market")?.trim() ?? "",
+  );
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
 
@@ -61,7 +65,6 @@ export default function OracleJobsPage() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
     loadJobs().finally(() => setLoading(false));
 
     const timer = setInterval(() => {
@@ -83,12 +86,6 @@ export default function OracleJobsPage() {
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [loadJobs]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const m = new URLSearchParams(window.location.search).get("market")?.trim();
-    if (m) setFilterMarket(m);
-  }, []);
 
   const marketIds = useMemo(() => {
     const s = new Set<number>();

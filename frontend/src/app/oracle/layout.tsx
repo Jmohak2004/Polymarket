@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { OracleJobSkeleton } from "@/components/OracleJobSkeleton";
 
 const TITLE = "Oracle jobs";
 const DESC =
@@ -16,5 +18,17 @@ export default function OracleLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return children;
+  return (
+    <Suspense
+      fallback={
+        <ul className="mx-auto max-w-4xl space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <OracleJobSkeleton key={i} />
+          ))}
+        </ul>
+      }
+    >
+      {children}
+    </Suspense>
+  );
 }

@@ -34,21 +34,33 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    let cancelled = false;
     api.markets
       .list(filter, { limit: PAGE_SIZE, offset: 0 })
       .then((p) => {
+        if (cancelled) return;
         setMarkets(p.items);
         setListTotal(p.total);
       })
       .catch((e) => {
+        if (cancelled) return;
         const msg = shortError(e);
         setError(msg);
         toastError(e);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [filter]);
+
+  const applyFilter = (value: number | undefined) => {
+    setLoading(true);
+    setError(null);
+    setFilter(value);
+  };
 
   const loadMore = useCallback(async () => {
     if (loadingMore || markets.length >= listTotal) return;
@@ -121,7 +133,7 @@ export default function HomePage() {
           <button
             key={String(f.value)}
             type="button"
-            onClick={() => setFilter(f.value)}
+            onClick={() => applyFilter(f.value)}
             className={
               filter === f.value
                 ? "nb-btn !bg-neutral-950 !text-amber-300 !shadow-[4px_4px_0_0_#0a0a0a] py-1.5 text-sm"

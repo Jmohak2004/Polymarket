@@ -47,6 +47,10 @@ const STATUS_EMPH: Record<number, string> = {
 
 export default function MarketDetailPage() {
   const { id } = useParams<{ id: string }>();
+  return <MarketDetailView key={id} id={id} />;
+}
+
+function MarketDetailView({ id }: { id: string }) {
   const { address } = useAccount();
   const chainId = useChainId();
   const expectedChainId = getExpectedChainId();
@@ -229,6 +233,8 @@ export default function MarketDetailPage() {
   const oracleBurstIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const oracleBurstTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingResolveKind = useRef<"claim" | "dispute" | null>(null);
+  const handledBetReceipt = useRef<string | null>(null);
+  const handledResolveReceipt = useRef<string | null>(null);
 
   const clearOracleBurst = useCallback(() => {
     if (oracleBurstIntervalRef.current !== null) {
@@ -252,14 +258,21 @@ export default function MarketDetailPage() {
   }, [clearOracleBurst, refreshMarketFromApi]);
 
   useEffect(() => {
-    setBetPrepError(null);
-    setResolvePrepError(null);
-    setLoading(true);
+    let cancelled = false;
     api.markets
       .get(Number(id))
-      .then(setMarket)
-      .catch(() => setMarket(null))
-      .finally(() => setLoading(false));
+      .then((data) => {
+        if (!cancelled) setMarket(data);
+      })
+      .catch(() => {
+        if (!cancelled) setMarket(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -300,13 +313,17 @@ export default function MarketDetailPage() {
   useEffect(() => {
     if (!betTxHash || !receipt) return;
     if (receipt.status !== "success" && receipt.status !== "reverted") return;
-    setBetPrepError(null);
+    const token = `${betTxHash}:${receipt.status}`;
+    if (handledBetReceipt.current === token) return;
+    handledBetReceipt.current = token;
+
     if (receipt.status === "reverted") {
       setBetPrepError("Bet transaction reverted on-chain.");
       notifyError(new Error("Bet transaction reverted."));
       setBetTxHash(undefined);
       return;
     }
+
     refreshMarketFromApi();
     toastSuccess("Bet confirmed on-chain.");
     setBetTxHash(undefined);
@@ -316,7 +333,10 @@ export default function MarketDetailPage() {
     if (!resolveTxHash || !resolveReceipt) return;
     if (resolveReceipt.status !== "success" && resolveReceipt.status !== "reverted")
       return;
-    setResolvePrepError(null);
+    const token = `${resolveTxHash}:${resolveReceipt.status}`;
+    if (handledResolveReceipt.current === token) return;
+    handledResolveReceipt.current = token;
+
     if (resolveReceipt.status === "reverted") {
       setResolvePrepError("Settlement transaction reverted.");
       notifyError(new Error("Settlement transaction reverted."));
@@ -324,6 +344,7 @@ export default function MarketDetailPage() {
       pendingResolveKind.current = null;
       return;
     }
+
     refreshMarketFromApi();
     const kind = pendingResolveKind.current;
     pendingResolveKind.current = null;
@@ -333,13 +354,8 @@ export default function MarketDetailPage() {
     setResolveTxHash(undefined);
   }, [resolveTxHash, resolveReceipt, refreshMarketFromApi]);
 
-  useEffect(() => {
-    if (receiptErr) setBetPrepError(shortError(receiptErr));
-  }, [receiptErr]);
-
-  useEffect(() => {
-    if (resolveReceiptErr) setResolvePrepError(shortError(resolveReceiptErr));
-  }, [resolveReceiptErr]);
+  const betReceiptError = receiptErr ? shortError(receiptErr) : null;
+  const resolveReceiptError = resolveReceiptErr ? shortError(resolveReceiptErr) : null;
 
   const triggerOracle = async () => {
     setTriggering(true);
@@ -454,14 +470,12 @@ export default function MarketDetailPage() {
   const isOpen = market.status === 0;
 
   const showBetWagmiErr =
-    wagmiBetErr !== null && wagmiBetErr !== undefined && shortError(wagmiBetErr).length > 0;
+    betReceiptError !== null && betReceiptError.length > 0;
   const resolveBusy =
     isResolvePending || Boolean(resolveTxHash && isFetchingResolveReceipt);
   const betBusy = isBetPending || Boolean(betTxHash && isFetchingBetReceipt);
   const showResolveWagmiErr =
-    wagmiResolveErr !== null &&
-    wagmiResolveErr !== undefined &&
-    shortError(wagmiResolveErr).length > 0;
+    resolveReceiptError !== null && resolveReceiptError.length > 0;
 
   const payoutLabel =
     typeof payoutWei === "bigint" ? `${formatEther(payoutWei)} Ξ est.` : "—";
@@ -673,7 +687,7 @@ export default function MarketDetailPage() {
               className="mb-4 border-2 border-red-950 bg-red-50 p-3 font-mono text-xs text-red-950"
               style={{ boxShadow: "3px 3px 0 0 #0a0a0a" }}
             >
-              {betPrepError ?? (showBetWagmiErr ? shortError(wagmiBetErr) : "")}
+              {betPrepError ?? betReceiptError ?? (showBetWagmiErr ? shortError(wagmiBetErr) : "")}
             </div>
           )}
 
@@ -753,6 +767,7 @@ export default function MarketDetailPage() {
               style={{ boxShadow: "3px 3px 0 0 #0a0a0a" }}
             >
               {resolvePrepError ??
+                resolveReceiptError ??
                 (showResolveWagmiErr ? shortError(wagmiResolveErr) : "")}
             </div>
           )}
