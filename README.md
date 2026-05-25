@@ -16,10 +16,10 @@ A prediction market platform where markets are resolved automatically by a **mul
 │  /oracle/trigger  /oracle/jobs                                │
 │                                                              │
 │  Oracle Pipelines:                                           │
-│    SpeechOracle  → Whisper / AssemblyAI → keyword detect     │
-│    ImageOracle   → GPT-4o Vision → yes/no classify           │
+│    SpeechOracle  → AssemblyAI STT → Gemma 4 verdict              │
+│    ImageOracle   → Gemma 4 Vision → yes/no classify            │
 │    WeatherOracle → OpenWeatherMap / Tomorrow.io               │
-│    SocialOracle  → GPT-4o → event extraction                 │
+│    SocialOracle  → Gemma 4 → event extraction                 │
 │                                                              │
 │  Chain Indexer (background task):                            │
 │    Polls BetPlaced / MarketResolved / MarketDisputed events  │
@@ -152,8 +152,8 @@ pip install -r requirements.txt
 | `PREDICTION_MARKET_ADDRESS` | yes | Set by `post-deploy.sh` |
 | `ORACLE_RESOLVER_ADDRESS` | yes | Set by `post-deploy.sh` |
 | `ORACLE_PRIVATE_KEY` | yes | Oracle wallet that calls `submitVote` |
-| `OPENAI_API_KEY` | for image + social oracles | `sk-…` |
-| `ASSEMBLYAI_API_KEY` | for speech oracle | alternative to Whisper |
+| `NVIDIA_API_KEY` | for image + social + speech verdicts | `nvapi-…` from [build.nvidia.com](https://build.nvidia.com/google/gemma-4-31b-it) |
+| `ASSEMBLYAI_API_KEY` | for speech transcription | optional if source has extractable text |
 | `OPENWEATHER_API_KEY` | for weather oracle | |
 | `TAVILY_API_KEY` | recommended | Web source search; falls back to DuckDuckGo |
 | `DATABASE_URL` | optional | Default: SQLite. See Postgres section below |
@@ -307,10 +307,10 @@ If none are set, **DuckDuckGo** HTML search is used (fine for local dev, rate-li
 
 | Type | Input | Model | Logic |
 |---|---|---|---|
-| Speech | Audio/Video URL | Whisper / AssemblyAI | Transcribe → keyword search |
-| Image | Image URL | GPT-4o Vision | Visual yes/no question |
+| Speech | Audio/Video URL | AssemblyAI + Gemma 4 | Transcribe → LLM verdict |
+| Image | Image URL | Gemma 4 Vision | Visual yes/no question |
 | Weather | Location + threshold | OpenWeatherMap / Tomorrow.io | Compare measured vs threshold |
-| Social | News/tweet URL | GPT-4o | Event extraction + NLI |
+| Social | News/tweet URL | Gemma 4 | Event extraction + NLI |
 
 ---
 
@@ -343,7 +343,7 @@ python -m app.indexer
 | Blockchain | Solidity 0.8.24, Hardhat, OpenZeppelin |
 | Chain | Polygon / Base (low gas) |
 | Backend | FastAPI, SQLAlchemy async, web3.py |
-| AI | OpenAI Whisper + GPT-4o, AssemblyAI |
+| AI | NVIDIA Gemma 4 (NIM API), AssemblyAI (speech STT) |
 | Weather | OpenWeatherMap, Tomorrow.io |
 | Frontend | Next.js 15, Tailwind CSS v4, wagmi v2, viem |
 | Storage | SQLite (dev) → Postgres (prod), Redis |

@@ -1,7 +1,13 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
     app_env: str = "development"
     secret_key: str = "change_me"
 
@@ -16,10 +22,12 @@ class Settings(BaseSettings):
     prediction_market_address: str = ""
     oracle_resolver_address: str = ""
 
-    # AI APIs
-    openai_api_key: str = ""
+    # AI — NVIDIA NIM (Gemma 4) for oracle text/vision; AssemblyAI optional for speech STT
+    nvidia_api_key: str = ""
+    nvidia_gemma_model: str = "google/gemma-4-31b-it"
+    nvidia_api_base: str = "https://integrate.api.nvidia.com/v1"
+
     assemblyai_api_key: str = ""
-    google_speech_api_key: str = ""
 
     # Weather
     openweather_api_key: str = ""
@@ -42,10 +50,6 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./polymarket.db"
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
 
 
 settings = Settings()
