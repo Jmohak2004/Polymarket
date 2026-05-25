@@ -1,9 +1,8 @@
 """
 Web source discovery for prediction markets.
 
-Tries external search APIs (Tavily, SerpAPI, Google CSE, Brave) when configured,
-then falls back to DuckDuckGo HTML search. Fetches pages and extracts readable
-text with trafilatura for preview / oracle pipelines.
+Uses DuckDuckGo (no key) and Bing Web Search API when configured.
+Fetches pages and extracts readable text with trafilatura for preview / oracle pipelines.
 """
 from __future__ import annotations
 
@@ -55,25 +54,19 @@ async def discover_sources(
 ) -> tuple[str, list[SourceCandidate]]:
     """
     Returns (search_query_used, ranked list of SourceCandidate).
+    Queries DuckDuckGo and Bing (if key set), merges and dedupes.
     """
     query = build_search_query(question, market_type, search_hints)
     seen: set[str] = set()
     out: list[SourceCandidate] = []
 
-    providers = [
-        _search_tavily,
-        _search_serpapi,
-        _search_google_cse,
-        _search_brave,
-        _search_duckduckgo,
-    ]
+    tasks = [_search_duckduckgo(query, max_results)]
+    if settings.bing_search_api_key:
+        tasks.append(_search_bing(query, max_results))
 
-    for fn in providers:
-        if len(out) >= max_results:
-            break
-        try:
-            batch = await fn(query, max_results - len(out))
-        except Exception:
+    batches = await asyncio.gather(*tasks, return_exceptions=True)
+    for batch in batches:
+        if isinstance(batch, Exception):
             continue
         for c in batch:
             norm = _normalize_url(c.url)
@@ -83,6 +76,8 @@ async def discover_sources(
             out.append(c)
             if len(out) >= max_results:
                 break
+        if len(out) >= max_results:
+            break
 
     return query, out
 
@@ -95,132 +90,38 @@ def _normalize_url(url: str) -> str:
         return url
 
 
-async def _search_tavily(query: str, limit: int) -> list[SourceCandidate]:
-    if not settings.tavily_api_key or limit <= 0:
+async def _search_bing(query: str, limit: int) -> list[SourceCandidate]:
+    if not settings.bing_search_api_key or limit <= 0:
         return []
+
+    endpoint = settings.bing_search_endpoint.rstrip("/")
+    headers = {"Ocp-Apim-Subscription-Key": settings.bing_search_api_key}
+    params = {"q": query, "count": min(limit, 20), "responseFilter": "Webpages"}
+
     async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.post(
-            "https://api.tavily.com/search",
-            json={
-                "api_key": settings.tavily_api_key,
-                "query": query,
-                "max_results": min(limit, 15),
-                "search_depth": "basic",
-            },
-        )
+        r = await client.get(endpoint, headers=headers, params=params)
         r.raise_for_status()
         data = r.json()
+
     out: list[SourceCandidate] = []
-    for item in data.get("results", [])[:limit]:
+    web = data.get("webPages", {}) or {}
+    for item in (web.get("value") or [])[:limit]:
         url = item.get("url") or ""
         if not url:
             continue
         out.append(
             SourceCandidate(
                 url=url,
-                title=item.get("title") or "",
-                snippet=(item.get("content") or "")[:500],
-                provider="tavily",
-            )
-        )
-    return out
-
-
-async def _search_serpapi(query: str, limit: int) -> list[SourceCandidate]:
-    if not settings.serpapi_key or limit <= 0:
-        return []
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(
-            "https://serpapi.com/search.json",
-            params={
-                "engine": "google",
-                "q": query,
-                "api_key": settings.serpapi_key,
-                "num": min(limit, 10),
-            },
-        )
-        r.raise_for_status()
-        data = r.json()
-    out: list[SourceCandidate] = []
-    for item in data.get("organic_results", [])[:limit]:
-        url = item.get("link") or ""
-        if not url:
-            continue
-        out.append(
-            SourceCandidate(
-                url=url,
-                title=item.get("title") or "",
+                title=item.get("name") or "",
                 snippet=(item.get("snippet") or "")[:500],
-                provider="serpapi",
-            )
-        )
-    return out
-
-
-async def _search_google_cse(query: str, limit: int) -> list[SourceCandidate]:
-    if not settings.google_cse_api_key or not settings.google_cse_id or limit <= 0:
-        return []
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(
-            "https://www.googleapis.com/customsearch/v1",
-            params={
-                "key": settings.google_cse_api_key,
-                "cx": settings.google_cse_id,
-                "q": query,
-                "num": min(limit, 10),
-            },
-        )
-        r.raise_for_status()
-        data = r.json()
-    out: list[SourceCandidate] = []
-    for item in data.get("items", [])[:limit]:
-        url = item.get("link") or ""
-        if not url:
-            continue
-        out.append(
-            SourceCandidate(
-                url=url,
-                title=item.get("title") or "",
-                snippet=(item.get("snippet") or "")[:500],
-                provider="google_cse",
-            )
-        )
-    return out
-
-
-async def _search_brave(query: str, limit: int) -> list[SourceCandidate]:
-    if not settings.brave_search_api_key or limit <= 0:
-        return []
-    async with httpx.AsyncClient(timeout=30) as client:
-        r = await client.get(
-            "https://api.search.brave.com/res/v1/web/search",
-            params={"q": query, "count": min(limit, 20)},
-            headers={
-                "X-Subscription-Token": settings.brave_search_api_key,
-                "Accept": "application/json",
-            },
-        )
-        r.raise_for_status()
-        data = r.json()
-    out: list[SourceCandidate] = []
-    web = data.get("web", {}) or {}
-    for item in (web.get("results") or [])[:limit]:
-        url = item.get("url") or ""
-        if not url:
-            continue
-        out.append(
-            SourceCandidate(
-                url=url,
-                title=item.get("title") or "",
-                snippet=(item.get("description") or "")[:500],
-                provider="brave",
+                provider="bing",
             )
         )
     return out
 
 
 async def _search_duckduckgo(query: str, limit: int) -> list[SourceCandidate]:
-    """Fallback: no API key. Runs sync client in a thread."""
+    """No API key required."""
     if limit <= 0:
         return []
 
@@ -276,7 +177,10 @@ async def extract_text_from_url(url: str, max_chars: int = 12000) -> dict[str, A
     """
     Download URL and extract main text. Returns title, text, warning (if any).
     """
-    headers = {"User-Agent": settings.http_user_agent, "Accept": "text/html,application/xhtml+xml,*/*"}
+    headers = {
+        "User-Agent": settings.http_user_agent,
+        "Accept": "text/html,application/xhtml+xml,*/*",
+    }
 
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(25.0),
@@ -293,7 +197,6 @@ async def extract_text_from_url(url: str, max_chars: int = 12000) -> dict[str, A
                 "warning": f"Response too large ({len(r.content)} bytes); increase max_fetch_bytes or use a direct link.",
             }
         html = r.content.decode(r.encoding or "utf-8", errors="replace")
-        # Try trafilatura (best for articles / news)
         meta = trafilatura.extract(
             html,
             url=url,

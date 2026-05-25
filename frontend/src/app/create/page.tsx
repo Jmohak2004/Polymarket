@@ -347,8 +347,7 @@ export default function CreateMarketPage() {
               {searching ? "…" : "Find web sources"}
             </button>
             <p className="text-xs font-medium text-neutral-600">
-              Searches the open web. Add <code className="font-mono">TAVILY_API_KEY</code> in backend for
-              production.
+              Searches DuckDuckGo and Bing (set <code className="font-mono">BING_SEARCH_API_KEY</code> in backend for Bing).
             </p>
           </div>
           {discover && (

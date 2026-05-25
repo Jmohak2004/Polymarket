@@ -41,6 +41,10 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
 
+    from .database import close_db
+
+    await close_db()
+
 
 app = FastAPI(
     title="Polymarket AI Oracle API",

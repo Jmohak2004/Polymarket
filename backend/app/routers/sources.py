@@ -10,9 +10,7 @@ router = APIRouter(prefix="/sources", tags=["sources"])
 @router.post("/discover", response_model=DiscoverResponse)
 async def discover_sources_endpoint(body: DiscoverRequest):
     """
-    Search the web for pages that can back a market (news, speeches, streams, etc.).
-    Configure TAVILY_API_KEY, SERPAPI_KEY, GOOGLE_CSE_*, or BRAVE_SEARCH_API_KEY
-    for reliable results; otherwise DuckDuckGo HTML search is used (dev / rate-limited).
+    Search the web via DuckDuckGo and Bing (when BING_SEARCH_API_KEY is set).
     """
     search_query, candidates = await discover_sources(
         question=body.question,
@@ -24,8 +22,8 @@ async def discover_sources_endpoint(body: DiscoverRequest):
         raise HTTPException(
             status_code=502,
             detail=(
-                "No search results returned. Configure a search API key in .env "
-                "(e.g. TAVILY_API_KEY) or try different search_hints."
+                "No search results returned. Try different search_hints or set "
+                "BING_SEARCH_API_KEY for richer Bing results alongside DuckDuckGo."
             ),
         )
     return DiscoverResponse(

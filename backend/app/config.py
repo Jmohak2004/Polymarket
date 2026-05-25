@@ -33,13 +33,9 @@ class Settings(BaseSettings):
     openweather_api_key: str = ""
     tomorrow_io_api_key: str = ""
 
-    # Web source discovery (search + scrape). Configure at least one for best results;
-    # without keys, falls back to DuckDuckGo HTML search (rate-limited, dev use).
-    tavily_api_key: str = ""
-    serpapi_key: str = ""
-    google_cse_id: str = ""
-    google_cse_api_key: str = ""
-    brave_search_api_key: str = ""
+    # Web source discovery — DuckDuckGo (free) + Bing Web Search API
+    bing_search_api_key: str = ""
+    bing_search_endpoint: str = "https://api.bing.microsoft.com/v7.0/search"
 
     # Scrape: max bytes per page, user-agent
     max_fetch_bytes: int = 2_000_000
@@ -48,8 +44,9 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
-    # Database
-    database_url: str = "sqlite+aiosqlite:///./polymarket.db"
+    # MongoDB
+    mongodb_url: str = "mongodb://localhost:27017"
+    mongodb_db_name: str = "polymarket"
 
 
 settings = Settings()

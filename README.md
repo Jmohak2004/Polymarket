@@ -46,7 +46,7 @@ A prediction market platform where markets are resolved automatically by a **mul
 
 ```
 PolyOracle/
-├── docker-compose.yml  # PostgreSQL 16 + Redis 7 + optional API container
+├── docker-compose.yml  # MongoDB 7 + Redis 7 + optional API container
 ├── contracts/          # Hardhat + Solidity (TypeScript)
 │   ├── contracts/
 │   │   ├── PredictionMarket.sol
@@ -155,8 +155,9 @@ pip install -r requirements.txt
 | `NVIDIA_API_KEY` | for image + social + speech verdicts | `nvapi-…` from [build.nvidia.com](https://build.nvidia.com/google/gemma-4-31b-it) |
 | `ASSEMBLYAI_API_KEY` | for speech transcription | optional if source has extractable text |
 | `OPENWEATHER_API_KEY` | for weather oracle | |
-| `TAVILY_API_KEY` | recommended | Web source search; falls back to DuckDuckGo |
-| `DATABASE_URL` | optional | Default: SQLite. See Postgres section below |
+| `MONGODB_URL` | yes | Default: `mongodb://localhost:27017` |
+| `MONGODB_DB_NAME` | optional | Default: `polymarket` |
+| `BING_SEARCH_API_KEY` | optional | Bing Web Search v7 — merged with DuckDuckGo for source discovery |
 | `REDIS_URL` | optional | Default: `redis://localhost:6379/0` |
 | `CORS_ORIGINS` | optional | Default: `*` in dev. Set to frontend origin in prod |
 
@@ -201,25 +202,26 @@ npm run dev
 
 ---
 
-### Optional — Postgres + Redis via Docker
+### Optional — MongoDB + Redis via Docker
 
 For a production-like local setup, start the database and cache services:
 
 ```bash
 # From repo root
-docker compose up -d db redis
+docker compose up -d mongo redis
 ```
 
 Then set in `backend/.env`:
 
 ```env
-DATABASE_URL=postgresql+asyncpg://polymarket:polymarket@localhost:5432/polymarket
+MONGODB_URL=mongodb://localhost:27017
+MONGODB_DB_NAME=polymarket
 REDIS_URL=redis://localhost:6379/0
 ```
 
-Restart the API — tables are created on startup via `init_db`.
+Restart the API — indexes are created on startup via `init_db`.
 
-To run the full stack (API + DB + Redis) in Docker:
+To run the full stack (API + MongoDB + Redis) in Docker:
 
 ```bash
 docker compose --profile full up -d
@@ -254,9 +256,9 @@ The backend searches the open web for evidence URLs and extracts page text for t
 | `POST /sources/discover` | Build a type-aware search query, return ranked `url` / `title` / `snippet` |
 | `GET /sources/preview?url=` | Download a URL and return extracted text (trafilatura) |
 
-**Search providers** (configure one or more in `backend/.env`):
-`TAVILY_API_KEY` (recommended), `SERPAPI_KEY`, `GOOGLE_CSE_ID` + `GOOGLE_CSE_API_KEY`, `BRAVE_SEARCH_API_KEY`.
-If none are set, **DuckDuckGo** HTML search is used (fine for local dev, rate-limited in production).
+**Search providers** (configure in `backend/.env`):
+**DuckDuckGo** (always used, no key) and **Bing Web Search v7** when `BING_SEARCH_API_KEY` is set.
+Results are merged and deduplicated.
 
 **Market creation:** set `auto_discover: true` to let the server pick the top search result as `data_source` automatically. The create form also has "Find web sources" to pick a result manually.
 
@@ -342,9 +344,9 @@ python -m app.indexer
 |---|---|
 | Blockchain | Solidity 0.8.24, Hardhat, OpenZeppelin |
 | Chain | Polygon / Base (low gas) |
-| Backend | FastAPI, SQLAlchemy async, web3.py |
+| Backend | FastAPI, Motor (MongoDB), web3.py |
 | AI | NVIDIA Gemma 4 (NIM API), AssemblyAI (speech STT) |
 | Weather | OpenWeatherMap, Tomorrow.io |
 | Frontend | Next.js 15, Tailwind CSS v4, wagmi v2, viem |
-| Storage | SQLite (dev) → Postgres (prod), Redis |
-| Infra | Docker Compose (db + redis + optional api) |
+| Storage | MongoDB, Redis |
+| Infra | Docker Compose (mongo + redis + optional api) |
