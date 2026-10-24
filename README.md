@@ -77,6 +77,13 @@ PolyOracle/
         └── lib/        api.ts · wagmi.ts · predictionMarket.ts · chainEnv.ts
 ```
 
+### Product features
+
+- Search markets by question, filter by market type, and sort by newest, closing time, or pool size.
+- Save markets to a persistent local watchlist without requiring an account.
+- Connect a wallet to place bets, claim rewards, dispute outcomes, and create markets on-chain.
+- Monitor multi-source AI oracle jobs and inspect the evidence used for resolution.
+
 ---
 
 ## Full Local Stack — Quick Start
