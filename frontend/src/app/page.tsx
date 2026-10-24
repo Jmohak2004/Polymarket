@@ -7,6 +7,8 @@ import { shortError } from "@/lib/errors";
 import { toastError } from "@/lib/toast";
 import { MarketCard } from "@/components/MarketCard";
 import { MarketCardSkeleton } from "@/components/MarketCardSkeleton";
+import { MARKET_TYPES } from "@/lib/wagmi";
+import { useWatchlist } from "@/lib/watchlist";
 
 const FILTERS = [
   { label: "All", value: undefined },
@@ -25,6 +27,11 @@ export default function HomePage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<number | undefined>(undefined);
+  const [typeFilter, setTypeFilter] = useState<number | undefined>(undefined);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"newest" | "ending" | "pool">("newest");
+  const [watchlistOnly, setWatchlistOnly] = useState(false);
+  const { ids: watchedIds } = useWatchlist();
 
   useEffect(() => {
     api.markets
@@ -85,6 +92,24 @@ export default function HomePage() {
 
   const openCount = summary?.by_status["0"] ?? 0;
   const resolvedCount = summary?.by_status["2"] ?? 0;
+  const visibleMarkets = markets
+    .filter((market) => {
+      const normalizedSearch = search.trim().toLowerCase();
+      return (
+        (!normalizedSearch || market.question.toLowerCase().includes(normalizedSearch)) &&
+        (typeFilter === undefined || market.market_type === typeFilter) &&
+        (!watchlistOnly || watchedIds.includes(market.id))
+      );
+    })
+    .sort((a, b) => {
+      if (sort === "ending") {
+        return new Date(a.resolution_time).getTime() - new Date(b.resolution_time).getTime();
+      }
+      if (sort === "pool") {
+        return b.yes_pool + b.no_pool - (a.yes_pool + a.no_pool);
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   return (
     <div>
@@ -145,6 +170,72 @@ export default function HomePage() {
         ))}
       </div>
 
+      <div className="nb-card mb-8 grid gap-3 p-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+        <label className="relative">
+          <span className="sr-only">Search markets</span>
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search markets…"
+            className="nb-input pr-10"
+          />
+          <span className="pointer-events-none absolute right-3 top-2.5 text-lg" aria-hidden>
+            ⌕
+          </span>
+        </label>
+        <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide">
+          <span>Sort</span>
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as typeof sort)}
+            className="border-2 border-neutral-950 bg-white px-2 py-2 text-sm font-bold normal-case"
+          >
+            <option value="newest">Newest</option>
+            <option value="ending">Ending soon</option>
+            <option value="pool">Largest pool</option>
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={() => setWatchlistOnly((current) => !current)}
+          className={
+            watchlistOnly
+              ? "nb-btn py-2 text-sm"
+              : "nb-btn-outline border-2 border-neutral-950 py-2 text-sm"
+          }
+        >
+          ★ Watchlist ({watchedIds.length})
+        </button>
+      </div>
+
+      <div className="mb-6 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setTypeFilter(undefined)}
+          className={
+            typeFilter === undefined
+              ? "nb-btn !bg-neutral-950 !text-amber-300 py-1.5 text-xs"
+              : "nb-btn-outline border-2 border-neutral-950 py-1.5 text-xs"
+          }
+        >
+          All types
+        </button>
+        {MARKET_TYPES.map((type) => (
+          <button
+            key={type.value}
+            type="button"
+            onClick={() => setTypeFilter(type.value)}
+            className={
+              typeFilter === type.value
+                ? "nb-btn !bg-neutral-950 !text-amber-300 py-1.5 text-xs"
+                : "nb-btn-outline border-2 border-neutral-950 py-1.5 text-xs"
+            }
+          >
+            {type.icon} {type.label}
+          </button>
+        ))}
+      </div>
+
       {loading && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -165,7 +256,7 @@ export default function HomePage() {
           </p>
         </div>
       )}
-      {!loading && !error && markets.length === 0 && (
+      {!loading && !error && visibleMarkets.length === 0 && (
         <div
           className="border-2 border-dashed border-neutral-950 bg-white/40 py-20 text-center"
           style={{ boxShadow: "4px 4px 0 0 #0a0a0a" }}
@@ -174,9 +265,13 @@ export default function HomePage() {
             ▢
           </p>
           <p className="mb-3 font-bold text-neutral-800">
-            {(filter === undefined && (summary?.total ?? listTotal) === 0
+            {(filter === undefined &&
+              !search &&
+              typeFilter === undefined &&
+              !watchlistOnly &&
+              (summary?.total ?? listTotal) === 0
               ? "No markets yet."
-              : "No markets match this filter."
+              : "No markets match your filters."
             )}
           </p>
           <Link
@@ -187,10 +282,10 @@ export default function HomePage() {
           </Link>
         </div>
       )}
-      {!loading && !error && markets.length > 0 && (
+      {!loading && !error && visibleMarkets.length > 0 && (
         <>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {markets.map((m) => (
+            {visibleMarkets.map((m) => (
               <MarketCard key={m.id} market={m} />
             ))}
           </div>
