@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Market } from "@/lib/api";
 import { MARKET_TYPES, MARKET_STATUS } from "@/lib/wagmi";
+import { useWatchlist } from "@/lib/watchlist";
 
 interface Props {
   market: Market;
@@ -17,6 +18,7 @@ const STATUS_STYLE: Record<number, string> = {
 };
 
 export function MarketCard({ market }: Props) {
+  const { isWatched, toggle } = useWatchlist();
   const totalPool = market.yes_pool + market.no_pool;
   const yesPercent =
     totalPool > 0 ? Math.round((market.yes_pool / totalPool) * 100) : 50;
@@ -42,14 +44,32 @@ export function MarketCard({ market }: Props) {
               {marketTypeInfo?.label}
             </span>
           </div>
-          <span
-            className={`shrink-0 border-2 border-neutral-950 px-2 py-0.5 text-[10px] font-black uppercase ${
-              STATUS_STYLE[market.status] ?? "bg-white"
-            }`}
-            style={{ boxShadow: "2px 2px 0 0 #0a0a0a" }}
-          >
-            {statusLabel}
-          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              aria-label={isWatched(market.id) ? "Remove from watchlist" : "Add to watchlist"}
+              aria-pressed={isWatched(market.id)}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                toggle(market.id);
+              }}
+              className={`border-2 border-neutral-950 px-1.5 py-0.5 text-base leading-none ${
+                isWatched(market.id) ? "bg-amber-300" : "bg-white"
+              }`}
+              style={{ boxShadow: "2px 2px 0 0 #0a0a0a" }}
+            >
+              {isWatched(market.id) ? "★" : "☆"}
+            </button>
+            <span
+              className={`border-2 border-neutral-950 px-2 py-0.5 text-[10px] font-black uppercase ${
+                STATUS_STYLE[market.status] ?? "bg-white"
+              }`}
+              style={{ boxShadow: "2px 2px 0 0 #0a0a0a" }}
+            >
+              {statusLabel}
+            </span>
+          </div>
         </div>
 
         <h2 className="mb-4 line-clamp-2 text-base font-bold leading-snug text-neutral-950">
