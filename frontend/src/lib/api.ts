@@ -1,4 +1,5 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { DEMO_MODE, demoRequest } from "./demo";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/+$/, "");
 
 export interface Market {
   id: number;
@@ -55,9 +56,11 @@ export interface DiscoverResponse {
 }
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
+  if (DEMO_MODE) return demoRequest<T>(path, init);
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: { "Content-Type": "application/json", ...init?.headers },
+    signal: init?.signal ?? AbortSignal.timeout(15000),
   });
   if (!res.ok) {
     const raw = await res.text();

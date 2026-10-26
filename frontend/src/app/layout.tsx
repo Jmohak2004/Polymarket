@@ -1,15 +1,8 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
 import "sonner/dist/styles.css";
 import "./globals.css";
 import { Providers } from "./providers";
-import { Navbar } from "@/components/Navbar";
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-  display: "swap",
-});
+import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -45,16 +38,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={outfit.variable}>
-      <body
-        className={`${outfit.className} min-h-screen font-sans text-neutral-950 antialiased`}
-      >
-        <div className="nb-bg-blobs" aria-hidden="true" />
+    <html lang="en">
+      <body>
         <Providers>
-          <div className="relative z-10">
-            <Navbar />
-            <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">{children}</main>
-          </div>
+          <AppShell>{children}</AppShell>
         </Providers>
       </body>
     </html>

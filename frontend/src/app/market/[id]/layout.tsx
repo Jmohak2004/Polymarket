@@ -1,4 +1,9 @@
 import type { Metadata } from "next";
+import { seedMarkets, DEMO_MODE } from "@/lib/demo";
+
+export function generateStaticParams() {
+  return process.env.STATIC_EXPORT === "true" ? seedMarkets().map(m => ({ id: String(m.id) })) : [];
+}
 
 const FALLBACK_DESC =
   "View this prediction market on PolyOracle — on-chain staking and AI-assisted resolution.";
@@ -10,6 +15,7 @@ function truncateMid(s: string, max = 72): string {
 }
 
 async function fetchMarketQuestion(id: string): Promise<string | null> {
+  if (DEMO_MODE) return seedMarkets().find(m => m.id === Number(id))?.question ?? null;
   const apiBase = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(
     /\/+$/,
     "",
@@ -17,6 +23,7 @@ async function fetchMarketQuestion(id: string): Promise<string | null> {
   try {
     const res = await fetch(`${apiBase}/markets/${encodeURIComponent(id)}`, {
       cache: "no-store",
+      signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     const j = (await res.json()) as { question?: unknown };

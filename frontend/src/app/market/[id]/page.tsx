@@ -14,6 +14,8 @@ import {
   useWriteContract,
 } from "wagmi";
 import { api, Market } from "@/lib/api";
+import { DEMO_MODE } from "@/lib/demo";
+import { DemoMarketDetail } from "@/components/DemoMarketDetail";
 import { getExpectedChainId } from "@/lib/chainEnv";
 import { shortError } from "@/lib/errors";
 import { toastSuccess, toastError as notifyError } from "@/lib/toast";
@@ -47,7 +49,7 @@ const STATUS_EMPH: Record<number, string> = {
 
 export default function MarketDetailPage() {
   const { id } = useParams<{ id: string }>();
-  return <MarketDetailView key={id} id={id} />;
+  return DEMO_MODE ? <DemoMarketDetail key={id} id={Number(id)}/> : <div className="legacy-page"><MarketDetailView key={id} id={id} /></div>;
 }
 
 function MarketDetailView({ id }: { id: string }) {

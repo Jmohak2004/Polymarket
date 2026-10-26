@@ -3,6 +3,7 @@ import { hardhat, polygon, polygonAmoy, baseSepolia } from "wagmi/chains";
 import { injected, metaMask } from "wagmi/connectors";
 
 export const config = createConfig({
+  ssr: true,
   chains: [hardhat, polygonAmoy, polygon, baseSepolia],
   connectors: [injected(), metaMask()],
   transports: {
