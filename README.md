@@ -79,10 +79,25 @@ PolyOracle/
 
 ### Product features
 
+- Use a polished, responsive exchange UI with market charts, category discovery, trade tickets, portfolios, activity, and mobile navigation.
+- Run immediately in demo mode with virtual funds, persistent browser-local positions, buy/sell flows, watchlists, and custom practice markets.
 - Search markets by question, filter by market type, and sort by newest, closing time, or pool size.
 - Save markets to a persistent local watchlist without requiring an account.
 - Connect a wallet to place bets, claim rewards, dispute outcomes, and create markets on-chain.
 - Monitor multi-source AI oracle jobs and inspect the evidence used for resolution.
+
+### Instant demo mode
+
+The frontend is fully usable without API keys, a database, or a blockchain node. Leave `NEXT_PUBLIC_API_URL` empty, then run:
+
+```bash
+cd frontend
+npm install
+npm run dev
+# → http://localhost:3005
+```
+
+Demo balances, trades, positions, watchlists, and created markets are saved in the current browser. All prices, histories, volumes, and funds in this mode are illustrative. There are no deposits, withdrawals, real-money transactions, or automatic payouts.
 
 ---
 
@@ -194,14 +209,14 @@ cd frontend
 cat .env.local
 npm install
 npm run dev
-# → http://localhost:3000
+# → http://localhost:3005
 ```
 
 **`frontend/.env.local` checklist**
 
 | Variable | Required | Notes |
 |---|---|---|
-| `NEXT_PUBLIC_API_URL` | yes | Default: `http://localhost:8000` |
+| `NEXT_PUBLIC_API_URL` | connected mode only | Backend origin such as `http://localhost:8000`; leave empty for demo mode |
 | `NEXT_PUBLIC_PREDICTION_MARKET_ADDRESS` | yes | Set by `post-deploy.sh` |
 | `NEXT_PUBLIC_CHAIN_ID` | yes | `31337` for Hardhat local |
 | `NEXT_PUBLIC_CHAIN_EXPLORER` | optional | Block explorer base URL for tx links |
@@ -354,6 +369,6 @@ python -m app.indexer
 | Backend | FastAPI, Motor (MongoDB), web3.py |
 | AI | NVIDIA Gemma 4 (NIM API), AssemblyAI (speech STT) |
 | Weather | OpenWeatherMap, Tomorrow.io |
-| Frontend | Next.js 15, Tailwind CSS v4, wagmi v2, viem |
+| Frontend | Next.js 16, React 19, Tailwind CSS v4, wagmi v3, viem |
 | Storage | MongoDB, Redis |
 | Infra | Docker Compose (mongo + redis + optional api) |

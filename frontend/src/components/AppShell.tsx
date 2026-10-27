@@ -38,7 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [menu, setMenu] = useState(false);
   return <div className="app-shell">
     {menu && <button className="mobile-overlay" aria-label="Close navigation" onClick={() => setMenu(false)}/>}
-    <aside className={`sidebar ${menu ? "open" : ""}`}><Suspense fallback={<div className="brand">polyoracle</div>}><Sidebar close={() => setMenu(false)}/></Suspense></aside>
+    <aside className={`sidebar ${menu ? "open" : ""}`}><button className="mobile-sidebar-close" onClick={() => setMenu(false)} aria-label="Close mobile navigation"><Icon name="close" size={18}/></button><Suspense fallback={<div className="brand">polyoracle</div>}><Sidebar close={() => setMenu(false)}/></Suspense></aside>
     <div className="app-content"><Navbar onMenu={() => setMenu(v => !v)}/><main className="main-content">{children}</main><footer className="app-footer"><span className="footer-brand">polyoracle<span>®</span></span><span>Your perspective has value.</span><div><span className="live-dot"/>{DEMO_MODE ? "Practice markets · Virtual funds only" : "Powered by on-chain markets"}<span className="footer-copy">© 2026 PolyOracle</span></div></footer></div>
   </div>;
 }

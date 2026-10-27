@@ -18,13 +18,13 @@ function Hero({ choose }: { choose: (category: string) => void }) {
 
 export function Dashboard() {
   const params = useSearchParams(), router = useRouter();
-  const view = params.get("view") || "markets", activeCategory = params.get("category") || "All markets";
+  const view = params.get("view") || "markets", activeCategory = params.get("category") || "All markets", globalQuery = params.get("q") || "";
   const demo = useDemo(), watchlist = useWatchlist();
   const [markets, setMarkets] = useState<Market[]>([]), [loading, setLoading] = useState(!DEMO_MODE), [error, setError] = useState("");
-  const [search, setSearch] = useState(params.get("q") || ""), [sort, setSort] = useState("trending"), [status, setStatus] = useState("all");
+  const [search, setSearch] = useState(globalQuery), [sort, setSort] = useState("trending"), [status, setStatus] = useState("all");
   const [trade, setTrade] = useState<{ market: Market; side: Side } | null>(null);
   const [limit, setLimit] = useState(9), [refresh, setRefresh] = useState(0);
-  useEffect(() => { setSearch(params.get("q") || ""); setLimit(9); }, [params]);
+  useEffect(() => { setSearch(globalQuery); setLimit(9); }, [globalQuery]);
   useEffect(() => {
     if (DEMO_MODE) return;
     let cancelled = false;
@@ -48,7 +48,7 @@ export function Dashboard() {
   const pageTitle = portfolio ? "Your perspective. In numbers." : activity ? "Every move, in one place." : view === "watchlist" ? "Keep your edge in sight." : view === "ending" ? "The clock is ticking." : "Explore markets";
   return <>
     <div className="market-pulse"><span className="pulse-label"><Icon name="activity" size={15}/>{DEMO_MODE ? "MARKET PULSE" : "MARKET OVERVIEW"}</span>{DEMO_MODE ? <><span>BTC $104,283.50 <b>↗ 2.41%</b></span><span>ETH $3,842.16 <b>↗ 1.83%</b></span><span>Market sentiment <b>Bullish <Icon name="arrow" size={12}/></b></span><span className="pulse-demo">Illustrative demo data</span></> : <><span>{allMarkets.length} markets indexed</span><span>{allMarkets.filter(m => m.status === 0).length} open markets</span></>}</div>
-    {!portfolio && !activity && view === "markets" && activeCategory === "All markets" && !params.get("q") && <Hero choose={choose}/>}
+    {!portfolio && !activity && view === "markets" && activeCategory === "All markets" && !globalQuery && <Hero choose={choose}/>}
     {!portfolio && !activity && <div className="platform-stats"><div><span className="stat-icon"><Icon name="chart" size={17}/></span><span>{DEMO_MODE ? "Illustrative volume" : "Total pool"}<strong>{DEMO_MODE ? "$12.8m" : `${allMarkets.reduce((s, m) => s + m.yes_pool + m.no_pool, 0).toFixed(3)} ETH`}<small>{DEMO_MODE ? "+18.6%" : ""}</small></strong></span></div><div><span className="stat-icon"><Icon name="grid" size={17}/></span><span>Markets to explore<strong>{allMarkets.length}<small className="neutral-small">across {new Set(allMarkets.map(m => metaFor(m).category)).size} categories</small></strong></span></div><div><span className="stat-icon"><Icon name="shield" size={17}/></span><span>{DEMO_MODE ? "Made for your curiosity" : "Evidence-based resolution"}<strong className="stat-phrase">{DEMO_MODE ? "Zero risk. Real practice." : "Independent oracle network"}</strong></span></div></div>}
     <section id="market-section" className="markets-section"><div className="section-heading"><div><div className="section-kicker">{portfolio || activity ? "YOUR ACCOUNT" : "FIND YOUR NEXT OPPORTUNITY"}</div><h2>{pageTitle}<span className="title-dot">.</span></h2>{(portfolio || activity) && <p className="muted">{DEMO_MODE ? "Your demo account. All amounts are virtual USD." : "Connect your wallet and view individual markets for on-chain positions."}</p>}</div>{!portfolio && !activity && <span className="market-count"><span className="live-dot"/>{filtered.length} {view === "watchlist" ? "saved" : "available"} markets</span>}</div>
     {(portfolio || activity) ? <>

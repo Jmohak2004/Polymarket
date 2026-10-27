@@ -43,7 +43,7 @@ export async function generateMetadata(props: {
   const desc = FALLBACK_DESC;
 
   const path = `/market/${id}`;
-  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://polyoracle-markets.deeppanda2049.chatgpt.site").replace(
     /\/+$/,
     "",
   );

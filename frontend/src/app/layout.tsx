@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "sonner/dist/styles.css";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -6,7 +6,7 @@ import { AppShell } from "@/components/AppShell";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000").replace(/\/+$/, "") + "/",
+    (process.env.NEXT_PUBLIC_SITE_URL || "https://polyoracle-markets.deeppanda2049.chatgpt.site").replace(/\/+$/, "") + "/",
   ),
   title: {
     default: "Markets · PolyOracle",
@@ -32,13 +32,20 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0e131b",
+};
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" data-scroll-behavior="smooth">
       <body>
         <Providers>
           <AppShell>{children}</AppShell>
