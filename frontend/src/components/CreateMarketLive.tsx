@@ -95,7 +95,8 @@ export default function CreateMarketPage() {
   const deployAndLink = async (market: Market, wallet: `0x${string}`) => {
     const contractAddr = getPredictionMarketAddress();
     if (!contractAddr) {
-      router.push(`/market/${market.id}`);
+      setSavedMarketFallbackId(market.id);
+      setError("Prediction market contract is not configured. No market was deployed on-chain.");
       return;
     }
     if (!publicClient) {
@@ -196,6 +197,11 @@ export default function CreateMarketPage() {
       return;
     }
 
+    if (!getPredictionMarketAddress()) {
+      setError("Prediction market contract is not configured. Configure the deployed contract before creating a live market.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setPhase("idle");
@@ -212,14 +218,6 @@ export default function CreateMarketPage() {
         auto_discover: autoDiscover,
         search_hints: form.search_hints.trim() || undefined,
       });
-
-      const contractAddr = getPredictionMarketAddress();
-      if (!contractAddr) {
-        setPhase("idle");
-        toastSuccess("Market created.");
-        router.push(`/market/${created.id}`);
-        return;
-      }
 
       await deployAndLink(created, address);
     } catch (err: unknown) {
